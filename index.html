@@ -249,34 +249,7 @@
                         </div>
                     </div>
 
-                    <!-- ④ 左画面最下部: 地点登録・管理エリア -->
-                    <div class="bg-white rounded-xl p-2 border border-[#e5e5ea] shadow-xs space-y-1.5 shrink-0">
-                        <div class="flex items-center justify-between px-0.5">
-                            <span class="text-[14px] font-extrabold text-[#1c1c1e] flex items-center gap-1 leading-none">
-                                <span>📍</span><span>登録地点の追加・管理</span>
-                            </span>
-                            <span id="saveStatus" class="text-[14px] text-[#34c759] font-bold transition-opacity opacity-0 leading-none">追加完了</span>
-                        </div>
-
-                        <!-- 追加入力フォーム -->
-                        <div class="flex items-center gap-1">
-                            <input 
-                                type="text" 
-                                id="locationInput" 
-                                placeholder="地名を入力（例: 新宿、横浜、札幌）" 
-                                class="flex-1 bg-[#f2f2f7] border border-[#d1d1d6] focus:border-[#ff9500] text-[#1c1c1e] text-[14px] rounded-lg px-2 py-1 outline-none truncate"
-                                onkeydown="if(event.key === 'Enter') handleAddLocation()"
-                            >
-                            <button type="button" onclick="handleAddLocation()" class="ios-btn bg-[#007aff] hover:bg-[#0062cc] active:scale-95 text-white font-bold text-[14px] px-3 py-1 rounded-lg shrink-0 shadow-xs">
-                                ＋追加
-                            </button>
-                        </div>
-
-                        <!-- 登録済み地点タグ一覧 -->
-                        <div id="locationTagsContainer" class="flex flex-wrap items-center gap-1 max-h-[34px] overflow-y-auto pr-0.5">
-                            <!-- JS生成 -->
-                        </div>
-                    </div>
+                    <button type="button" onclick="openLocationManager()" class="ios-btn shrink-0 w-full bg-white border border-[#d1d1d6] text-[#1c1c1e] font-bold text-[14px] py-2 rounded-xl shadow-xs">📍 登録地点の追加・管理</button>
 
                 </div>
 
@@ -439,9 +412,36 @@
         </div>
     </div>
 
+    <div id="locationManagerModal" role="dialog" aria-modal="true" aria-labelledby="locationManagerTitle" class="hidden fixed inset-0 z-[75] bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-5 w-full max-w-md max-h-[85dvh] overflow-y-auto space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between gap-2"><h3 id="locationManagerTitle" class="text-[17px] font-bold">登録地点の追加・管理</h3>
+            <span id="saveStatus" class="text-[12px] text-[#34c759] opacity-0">保存完了</span></div>
+            <button type="button" onclick="openLocationEditor()" class="ios-btn w-full bg-[#007aff] text-white font-bold py-2 rounded-lg">＋ 地点登録</button>
+            <div id="locationTagsContainer" class="space-y-2"></div>
+            <button type="button" onclick="closeLocationManager()" class="ios-btn w-full bg-[#f2f2f7] font-bold py-2 rounded-lg">閉じる</button>
+        </div>
+    </div>
+
+    <div id="locationEditorModal" role="dialog" aria-modal="true" aria-labelledby="locationEditorTitle" class="hidden fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[85dvh] overflow-y-auto space-y-3 shadow-2xl">
+            <h3 id="locationEditorTitle" class="text-[17px] font-bold">地点登録</h3>
+            <form onsubmit="event.preventDefault(); handleAddLocation();" class="space-y-3">
+                <div><label for="locationNameInput" class="block font-bold mb-1">名前（任意）</label>
+                <input type="text" id="locationNameInput" placeholder="例：自宅・会社・現場A" class="w-full bg-[#f2f2f7] border border-[#d1d1d6] rounded-lg px-3 py-2 text-[16px]"></div>
+                <div><label for="locationInput" class="block font-bold mb-1">住所（必須）</label>
+                <input type="text" id="locationInput" required placeholder="例：東京都品川区八潮" class="w-full bg-[#f2f2f7] border border-[#d1d1d6] rounded-lg px-3 py-2 text-[16px]"></div>
+                <p class="text-[12px] text-[#4b5563]">天気は住所で取得します。名前が空欄なら住所を表示します。</p>
+                <p id="locationEditorError" role="alert" class="text-[13px] text-red-600"></p>
+                <div class="flex gap-2"><button type="submit" class="ios-btn flex-1 bg-[#007aff] text-white font-bold py-2 rounded-lg">保存</button>
+                <button type="button" onclick="closeLocationEditor()" class="ios-btn flex-1 bg-[#f2f2f7] font-bold py-2 rounded-lg">キャンセル</button></div>
+            </form>
+        </div>
+    </div>
+
     <!-- ==================== JavaScript ロジック ==================== -->
     <script>
         const STORAGE_KEY_LIST = 'weather_checker_saved_locations_list';
+        const STORAGE_KEY_NAMES = 'weather_checker_location_names';
         const STORAGE_KEY_ACTIVE = 'weather_checker_active_location';
         const STORAGE_KEY_API_KEY = 'weather_checker_gemini_key';
         const STORAGE_KEY_RAIN_THRESHOLD = 'weather_checker_rain_threshold';
@@ -540,6 +540,50 @@
         }
 
         let locations = [];
+        let locationNames = Object.create(null);
+        function getLocationLabel(address) { return locationNames[address] || address; }
+        let locationManagerOpen = false;
+        let locationEditorOpen = false;
+        function openLocationManager() {
+            locationManagerOpen = true;
+            renderLocations();
+            document.getElementById('locationManagerModal').classList.remove('hidden');
+        }
+        function selectLocationFromManager(address) {
+            if (!locations.includes(address)) return;
+            closeLocationManager();
+            handleResultLocationSelect(address);
+        }
+        function closeLocationManager() {
+            locationManagerOpen = false;
+            document.getElementById('locationManagerModal').classList.add('hidden');
+        }
+        let editingLocationAddress = null;
+        function openLocationEditor(address = null) {
+            locationEditorOpen = true;
+            document.getElementById('locationManagerModal').classList.add('hidden');
+            editingLocationAddress = address;
+            document.getElementById('locationInput').value = address || '';
+            document.getElementById('locationNameInput').value = address ? locationNames[address] || '' : '';
+            document.getElementById('locationEditorTitle').innerText = address ? '地点編集' : '地点登録';
+            document.getElementById('locationEditorError').innerText = '';
+            document.getElementById('locationEditorModal').classList.remove('hidden');
+        }
+        function editLocationName(address) { openLocationEditor(address); }
+        function closeLocationEditor() {
+            const focused = document.activeElement;
+            if (document.getElementById('locationEditorModal').contains(focused)) focused?.blur();
+            document.getElementById('locationEditorModal').classList.add('hidden');
+            editingLocationAddress = null;
+            locationEditorOpen = false;
+            if (locationManagerOpen) document.getElementById('locationManagerModal').classList.remove('hidden');
+        }
+        document.addEventListener('keydown', event => {
+            if (event.key === 'Escape') {
+                if (locationEditorOpen) closeLocationEditor();
+                else closeLocationManager();
+            }
+        });
         let activeLocation = '東京都品川区';
         let selectedDay = 'today';
         let cachedForecastData = null;
@@ -653,6 +697,14 @@
         });
 
         function loadLocations() {
+            try {
+                const names = JSON.parse(localStorage.getItem(STORAGE_KEY_NAMES) || '{}');
+                if (names && typeof names === 'object' && !Array.isArray(names)) {
+                    for (const [address, name] of Object.entries(names)) {
+                        if (typeof name === 'string' && name.trim()) locationNames[address] = name.trim();
+                    }
+                }
+            } catch (e) { locationNames = Object.create(null); }
             const saved = localStorage.getItem(STORAGE_KEY_LIST);
             if (saved) {
                 try { locations = JSON.parse(saved); } catch (e) { locations = [...DEFAULT_LOCATIONS]; }
@@ -668,46 +720,51 @@
         }
 
         function saveLocationsToStorage() {
+            localStorage.setItem(STORAGE_KEY_NAMES, JSON.stringify(locationNames));
             localStorage.setItem(STORAGE_KEY_LIST, JSON.stringify(locations));
             localStorage.setItem(STORAGE_KEY_ACTIVE, activeLocation);
         }
 
         function renderLocations() {
-            const tagsContainer = document.getElementById('locationTagsContainer');
-            if (tagsContainer) {
-                tagsContainer.innerHTML = '';
-                locations.forEach((loc) => {
-                    const isActive = (loc === activeLocation);
-                    const tag = document.createElement('div');
-                    tag.className = `flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[14px] font-bold cursor-pointer transition-all ${
-                        isActive 
-                            ? 'bg-orange-100 border-[#ff9500] text-orange-950 shadow-2xs' 
-                            : 'bg-[#f8f9fa] border-[#d1d1d6] text-[#374151] hover:bg-[#e5e5ea]'
-                    }`;
-
-                    tag.innerHTML = `
-                        <span class="truncate max-w-[120px]">${escapeHtml(loc)}</span>
-                        ${locations.length > 1 ? `<span class="delete-btn text-[#8e8e93] hover:text-[#e03131] ml-0.5 text-[14px]" title="削除">✕</span>` : ''}
-                    `;
-
-                    tag.onclick = (e) => {
-                        if (e.target.classList.contains('delete-btn')) {
-                            e.stopPropagation();
-                            handleDeleteLocation(loc);
-                        } else {
-                            if (activeLocation !== loc) {
-                                activeLocation = loc;
-                                saveLocationsToStorage();
-                                renderLocations();
-                                fetchForecastData(false);
-                            }
-                        }
-                    };
-
-                    tagsContainer.appendChild(tag);
+            const container = document.getElementById('locationTagsContainer');
+            if (container) {
+                container.innerHTML = '';
+                locations.forEach(address => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center gap-2 border border-[#e5e5ea] rounded-lg p-2';
+                    const text = document.createElement('button');
+                    text.type = 'button';
+                    text.className = 'ios-btn flex-1 min-w-0 text-left rounded-lg p-1';
+                    text.setAttribute('aria-label', getLocationLabel(address) + 'を選択');
+                    text.onclick = () => selectLocationFromManager(address);
+                    const name = document.createElement('div');
+                    name.className = 'font-bold break-words';
+                    name.textContent = (address === activeLocation ? '✓ ' : '') + getLocationLabel(address);
+                    if (address === activeLocation) name.classList.add('text-[#ff9500]');
+                    text.appendChild(name);
+                    if (locationNames[address]) {
+                        const detail = document.createElement('div');
+                        detail.className = 'text-[12px] text-[#4b5563] break-words';
+                        detail.textContent = address;
+                        text.appendChild(detail);
+                    }
+                    const edit = document.createElement('button');
+                    edit.type = 'button';
+                    edit.className = 'ios-btn text-[#007aff] font-bold px-2 py-1 shrink-0';
+                    edit.textContent = '編集';
+                    edit.onclick = () => openLocationEditor(address);
+                    const remove = document.createElement('button');
+                    remove.type = 'button';
+                    remove.className = 'ios-btn text-red-600 px-2 py-1 shrink-0 disabled:opacity-30';
+                    remove.textContent = '削除';
+                    remove.disabled = locations.length <= 1;
+                    remove.onclick = () => handleDeleteLocation(address);
+                    row.appendChild(text);
+                    row.appendChild(edit);
+                    row.appendChild(remove);
+                    container.appendChild(row);
                 });
             }
-
             updateResultLocationSelect();
         }
 
@@ -718,7 +775,8 @@
             locations.forEach((loc) => {
                 const opt = document.createElement('option');
                 opt.value = loc;
-                opt.textContent = loc;
+                opt.textContent = getLocationLabel(loc);
+                opt.title = loc;
                 if (loc === activeLocation) opt.selected = true;
                 selectEl.appendChild(opt);
             });
@@ -739,31 +797,46 @@
 
         function handleAddLocation() {
             const input = document.getElementById('locationInput');
+            const nameInput = document.getElementById('locationNameInput');
             const status = document.getElementById('saveStatus');
             const val = input?.value.trim();
-            if (!val) return;
-
-            if (!locations.includes(val)) {
-                locations.push(val);
-                activeLocation = val;
-                saveLocationsToStorage();
-                renderLocations();
-                if (status) {
-                    status.classList.remove('opacity-0');
-                    setTimeout(() => status.classList.add('opacity-0'), 1800);
-                }
-                fetchForecastData(false);
-            } else {
-                activeLocation = val;
-                saveLocationsToStorage();
-                renderLocations();
-                fetchForecastData(false);
+            if (!val) {
+                document.getElementById('locationEditorError').innerText = '住所を入力してください。';
+                return;
             }
+            if (!editingLocationAddress && locations.includes(val)) {
+                document.getElementById('locationEditorError').innerText = 'この住所は登録済みです。一覧の「編集」から変更してください。';
+                return;
+            }
+            if (editingLocationAddress && val !== editingLocationAddress && locations.includes(val)) {
+                document.getElementById('locationEditorError').innerText = 'この住所は登録済みです。既存の地点から編集してください。';
+                return;
+            }
+            const name = nameInput?.value.trim() || '';
+            const isNew = !locations.includes(val);
+            if (editingLocationAddress && val !== editingLocationAddress) {
+                locations = locations.map(address => address === editingLocationAddress ? val : address);
+                delete locationNames[editingLocationAddress];
+            } else if (isNew) locations.push(val);
+            if (name) locationNames[val] = name;
+            else delete locationNames[val];
+            if (editingLocationAddress === activeLocation) activeLocation = val;
+            saveLocationsToStorage();
+            renderLocations();
+            if (status) {
+                status.innerText = isNew ? '追加完了' : '更新完了';
+                status.classList.remove('opacity-0');
+                setTimeout(() => status.classList.add('opacity-0'), 1800);
+            }
+            closeLocationEditor();
+            fetchForecastData(false);
             if (input) input.value = '';
+            if (nameInput) nameInput.value = '';
         }
 
         function handleDeleteLocation(loc) {
             if (locations.length <= 1) return;
+            delete locationNames[loc];
             locations = locations.filter(item => item !== loc);
             if (activeLocation === loc) activeLocation = locations[0];
             saveLocationsToStorage();
@@ -905,13 +978,13 @@
             let last=first-1;
             // 途中の欠損を飛ばして「雨なし」の期間を延ばさない。
             for(let i=first;i<times.length;i++) {
-                if(!validNumber(pops[i])&&!validNumber(amounts[i])) break;
+                const c=codes[i];
+                const rainCode=validNumber(c)&&((c>=51&&c<=67)||(c>=80&&c<=82)||(c>=95&&c<=99));
+                const snow=validNumber(c)&&((c>=71&&c<=77)||(c>=85&&c<=86));
+                if(!validNumber(pops[i])&&!validNumber(amounts[i])&&!rainCode&&!snow) break;
                 if(i>first && toMs(times[i])-toMs(times[i-1])!==3600000) break;
                 last=i;
-                const c=codes[i];
-                const rainCode=(c>=51&&c<=67)||(c>=80&&c<=82)||(c>=95&&c<=99);
-                if(rainCode || pops[i]>=threshold || amounts[i]>=0.2) {
-                    const snow=(c>=71&&c<=77)||(c>=85&&c<=86);
+                if(rainCode || snow || pops[i]>=threshold || amounts[i]>=0.2) {
                     const kind=snow?'雪予報':'雨予報';
                     const hours=Math.max(0,(toMs(times[i])-nowMs)/3600000);
                     if(hours<1) return {text:`現在〜1時間以内に${kind}`,status:'raining'};
@@ -1428,7 +1501,11 @@
 
         function renderMainHourlyList(hourlyDetails) {
             const listEl = document.getElementById('mainHourlyList');
-            if (!listEl || !hourlyDetails) return;
+            if (!listEl) return;
+            if (!Array.isArray(hourlyDetails)) {
+                listEl.textContent = '時間別予報を取得できません';
+                return;
+            }
 
             let displayList = hourlyDetails;
             if (selectedDay === 'today') {
@@ -1637,7 +1714,7 @@
             const formattedDate = `${targetDate.getMonth() + 1}月${targetDate.getDate()}日 (${dayOfWeek})`;
 
             document.getElementById('wModalDateTitle').innerText = formattedDate;
-            document.getElementById('wModalLocationSub').innerText = `📍 ${activeLocation}`;
+            document.getElementById('wModalLocationSub').innerText = `📍 ${getLocationLabel(activeLocation)}`;
 
             const summary=dailySummaries[dateStr];
             const pop6h=summary?.pop6h || [null,null,null,null];
