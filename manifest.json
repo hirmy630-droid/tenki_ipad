@@ -1,9 +1,9 @@
 {
-  "id": "./",
-  "name": "明日の天気予報 - KYOWA ROOF",
-  "short_name": "天気予報",
+  "id": "./index.html",
+  "name": "明日の服装予報",
+  "short_name": "服装予報",
   "lang": "ja",
-  "start_url": "./index.html?v=20261004-ff088d9abe25",
+  "start_url": "./index.html?v=20261005-021603",
   "scope": "./",
   "display": "standalone",
   "background_color": "#f2f2f7",

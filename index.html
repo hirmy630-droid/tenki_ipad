@@ -194,7 +194,7 @@
                             <select 
                                 id="rainThresholdSelect" 
                                 onchange="handleRainThresholdChange(this.value)" 
-                                class="appearance-none bg-blue-100/90 hover:bg-blue-200/80 active:bg-blue-200 text-blue-900 text-[13px] font-black pl-2 pr-5 py-0.5 rounded-md border border-blue-300 outline-none cursor-pointer shadow-2xs">
+                                class="appearance-none bg-blue-100/90 hover:bg-blue-200/80 active:bg-blue-200 text-blue-900 text-[14px] font-black pl-2 pr-5 py-0.5 rounded-md border border-blue-300 outline-none cursor-pointer shadow-2xs">
                                 <option value="30">30%基準</option>
                                 <option value="40">40%基準</option>
                                 <option value="50">50%基準</option>
@@ -204,11 +204,11 @@
                         </div>
 
                         <!-- 予測テキスト -->
-                        <span id="nextRainText" class="text-[14px] font-bold text-[#1c1c1e] min-w-0 flex-1 whitespace-normal break-words">計算中...</span>
+                        <span id="nextRainText" class="text-[15px] font-bold text-[#1c1c1e] min-w-0 flex-1 whitespace-normal break-words">計算中...</span>
                     </div>
 
                     <!-- ③ 推奨服装カード -->
-                    <div class="bg-gradient-to-br from-orange-50/95 to-amber-50/70 rounded-xl p-2.5 border border-orange-200/90 shadow-xs flex-1 flex flex-col justify-between gap-1.5 min-h-0 overflow-hidden">
+                    <div class="bg-gradient-to-br from-orange-50/95 to-amber-50/70 rounded-xl p-2.5 border border-orange-200/90 shadow-xs flex-1 flex flex-col justify-between gap-1.5 min-h-0 overflow-y-auto">
                         
                         <!-- 見出し & 体感温度 & 基準ラベル -->
                         <div class="flex items-center justify-between border-b border-orange-200/80 pb-1 shrink-0">
@@ -216,9 +216,9 @@
                                 <span>👔</span><span>本日の推奨服装</span>
                             </span>
                             <div class="flex items-center gap-1.5">
-                                <span class="inline-flex items-center gap-0.5 text-[14px] font-bold text-orange-800 bg-orange-100/90 px-2 py-0.5 rounded-full border border-orange-300 shadow-2xs leading-none">
+                                <span class="inline-flex items-center gap-0.5 text-[17px] font-bold text-orange-800 bg-orange-100/90 px-2 py-0.5 rounded-full border border-orange-300 shadow-2xs leading-none">
                                     <span>体感:</span>
-                                    <span id="imageStyleApparentTemp" class="font-mono font-black text-[14px] leading-none">--℃</span>
+                                    <span id="imageStyleApparentTemp" class="font-mono font-black text-[17px] leading-none">--℃</span>
                                 </span>
                                 <span id="criteriaBadge" class="text-[13px] bg-white px-2 py-0.5 rounded-md border border-orange-200 text-[#374151] font-bold shadow-2xs">--</span>
                             </div>
@@ -966,41 +966,52 @@
         function calculateNextRain(meteoData, nowMs=Date.now()) {
             const hourly=meteoData?.hourly;
             if(!Array.isArray(hourly?.time)) return {text:'降水予報を取得できません',status:'unknown'};
-            const times=hourly.time;
-            const pops=hourly.precipitation_probability||[];
-            const amounts=hourly.precipitation||[];
-            const codes=hourly.weathercode||[];
+            const times=hourly.time, pops=hourly.precipitation_probability||[], codes=hourly.weathercode||[];
             const toMs=t=>Date.parse(/(?:Z|[+-]\d{2}:\d{2})$/.test(t)?t:t+'+09:00');
-            const threshold = Number(localStorage.getItem(STORAGE_KEY_RAIN_THRESHOLD)) || DEFAULT_RAIN_THRESHOLD;
-            const currentHour=Math.floor(nowMs/3600000)*3600000;
-            const first=times.findIndex(t=>toMs(t)>=currentHour);
-            if(first<0 || toMs(times[first])>currentHour) return {text:'降水予報を取得できません',status:'unknown'};
+            const selected=Number(localStorage.getItem(STORAGE_KEY_RAIN_THRESHOLD));
+            const threshold=[30,40,50,60].includes(selected)?selected:DEFAULT_RAIN_THRESHOLD;
+            // 降水確率は直前1時間の値。現在を含む区間から確認する。
+            const first=times.findIndex(t=>toMs(t)>nowMs);
+            if(first<0 || toMs(times[first])-3600000>nowMs) return {text:'降水予報を取得できません',status:'unknown'};
             let last=first-1;
-            // 途中の欠損を飛ばして「雨なし」の期間を延ばさない。
             for(let i=first;i<times.length;i++) {
-                const c=codes[i];
-                const rainCode=validNumber(c)&&((c>=51&&c<=67)||(c>=80&&c<=82)||(c>=95&&c<=99));
-                const snow=validNumber(c)&&((c>=71&&c<=77)||(c>=85&&c<=86));
-                if(!validNumber(pops[i])&&!validNumber(amounts[i])&&!rainCode&&!snow) break;
-                if(i>first && toMs(times[i])-toMs(times[i-1])!==3600000) break;
+                const end=toMs(times[i]), start=end-3600000;
+                if(!Number.isFinite(end) || !validNumber(pops[i]) || pops[i]<0 || pops[i]>100) break;
+                if(i>first && end-toMs(times[i-1])!==3600000) break;
                 last=i;
-                if(rainCode || snow || pops[i]>=threshold || amounts[i]>=0.2) {
+                // 選択した確率基準を降水量や天気コードで上書きしない。
+                if(pops[i]>=threshold) {
+                    const c=codes[i];
+                    const snow=validNumber(c)&&((c>=71&&c<=77)||(c>=85&&c<=86));
                     const kind=snow?'雪予報':'雨予報';
-                    const hours=Math.max(0,(toMs(times[i])-nowMs)/3600000);
+                    const hours=Math.max(0,(start-nowMs)/3600000);
                     if(hours<1) return {text:`現在〜1時間以内に${kind}`,status:'raining'};
                     if(hours<24) return {text:`約${Math.max(1,Math.round(hours))}時間後に${kind}`,status:'hours'};
-                    const days=Math.floor(hours/24),rest=Math.round(hours-days*24);
-                    return {text:rest===24?`約${days+1}日後に${kind}`:rest?`約${days}日${rest}時間後に${kind}`:`約${days}日後に${kind}`,status:'days'};
+                    const totalHours=Math.round(hours), days=Math.floor(totalHours/24), rest=totalHours%24;
+                    return {text:rest?`約${days}日${rest}時間後に${kind}`:`約${days}日後に${kind}`,status:'days'};
                 }
             }
             if(last<first) return {text:'降水予報を取得できません',status:'unknown'};
-            // 端数を切り捨て、実際に確認した期間より長く表示しない。
             const hours=Math.max(0,Math.floor((toMs(times[last])-nowMs)/3600000));
             if(hours<1) return {text:'今後の降水データが不足しています',status:'unknown'};
-            const days=Math.floor(hours/24),rest=hours%24;
-            const duration=days ? `${days}日間` : `${hours}時間`;
-            return {text:`今後${duration}に雨予報なし`,status:'clear'};
+            const days=Math.floor(hours/24);
+            const duration=days?`${days}日間`:`${hours}時間`;
+            // 基準未満を「雨なし」と断定しない。
+            return {text:`今後${duration}は${threshold}%未満`,status:'clear'};
         }
+
+        function fitClothingText() {
+            const section=document.getElementById('outfitSection');
+            if(!section || !section.getBoundingClientRect().width) return;
+            section.querySelectorAll('.clothing-result').forEach(el=>{
+                // 短い服装名は17px、長い服装名は実際の幅に合わせて最低14pxまで調整。
+                for(let size=17;size>=14;size--) {
+                    el.style.fontSize=size+'px';
+                    if(el.scrollHeight<=parseFloat(getComputedStyle(el).lineHeight)*2+1) break;
+                }
+            });
+        }
+        window.addEventListener('resize',()=>requestAnimationFrame(fitClothingText));
 
         function jstClock(ms=Date.now()) {return new Date(new Date(ms).toLocaleString('en-US',{timeZone:'Asia/Tokyo'}));}
 
@@ -1449,31 +1460,33 @@
             document.getElementById('outfitSection').innerHTML = `
                 <div class="bg-white/95 rounded-lg px-2.5 py-1.5 border border-orange-200/80 shadow-2xs flex flex-col justify-center min-h-[48px]">
                     <div class="text-[12px] font-bold text-[#b45309] uppercase tracking-wider leading-none">【トップス・上着】</div>
-                    <div class="text-[#1c1c1e] font-extrabold text-[14px] leading-snug mt-1 whitespace-normal break-words">${outfit.jacket}</div>
+                    <div class="clothing-result text-[#1c1c1e] font-extrabold text-[17px] leading-snug mt-1 whitespace-normal break-words">${outfit.jacket}</div>
                 </div>
                 <div class="bg-white/95 rounded-lg px-2.5 py-1.5 border border-orange-200/80 shadow-2xs flex flex-col justify-center min-h-[48px]">
                     <div class="text-[12px] font-bold text-[#b45309] uppercase tracking-wider leading-none">【ボトムス・ズボン】</div>
-                    <div class="text-[#1c1c1e] font-extrabold text-[14px] leading-snug mt-1 whitespace-normal break-words">${escapeHtml(outfit.pants)}</div>
+                    <div class="clothing-result text-[#1c1c1e] font-extrabold text-[17px] leading-snug mt-1 whitespace-normal break-words">${escapeHtml(outfit.pants)}</div>
                 </div>
             `;
 
             document.getElementById('timeTimeline').innerHTML = `
                 <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">朝 (8時) 体感</div>
-                    <div class="font-black text-[#1c1c1e] font-mono text-[15px] leading-none my-0.5">${validNumber(data.morningTemp) ? Math.round(data.morningTemp) : "--"}℃</div>
+                    <div class="font-black text-[#1c1c1e] font-mono text-[17px] leading-none my-0.5">${validNumber(data.morningTemp) ? Math.round(data.morningTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.morningTemp) ? 'データなし' : data.morningTemp <= 15 ? '羽織り推奨' : '快適'}</div>
                 </div>
                 <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">昼 (14時) 体感</div>
-                    <div class="font-black text-orange-600 font-mono text-[15px] leading-none my-0.5">${validNumber(data.noonTemp) ? Math.round(data.noonTemp) : "--"}℃</div>
+                    <div class="font-black text-orange-600 font-mono text-[17px] leading-none my-0.5">${validNumber(data.noonTemp) ? Math.round(data.noonTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.noonTemp) ? 'データなし' : data.noonTemp >= 22 ? '上着不要' : '適温'}</div>
                 </div>
                 <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">夜 (20時) 体感</div>
-                    <div class="font-black text-[#007aff] font-mono text-[15px] leading-none my-0.5">${validNumber(data.nightTemp) ? Math.round(data.nightTemp) : "--"}℃</div>
+                    <div class="font-black text-[#007aff] font-mono text-[17px] leading-none my-0.5">${validNumber(data.nightTemp) ? Math.round(data.nightTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.nightTemp) ? 'データなし' : data.nightTemp <= 14 ? '冷え込み注意' : '過ごしやすい'}</div>
                 </div>
             `;
+
+            requestAnimationFrame(fitClothingText);
 
             let advice = '👕 暑い・寒いと感じたら、脱ぎ着して調整してください。';
             const tempDiff = [data.noonTemp,data.morningTemp,data.nightTemp].every(validNumber) ? Math.max(0,data.noonTemp-Math.min(data.morningTemp,data.nightTemp)) : null;
