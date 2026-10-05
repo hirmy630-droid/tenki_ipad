@@ -1,5 +1,5 @@
 'use strict';
-const VERSION = '20261005-021603';
+const VERSION = '20261005-123000';
 const BASE = self.registration.scope;
 const PREFIX = 'weather-pwa-' + encodeURIComponent(BASE) + '-';
 const CACHE_NAME = PREFIX + VERSION;

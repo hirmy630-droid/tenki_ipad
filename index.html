@@ -133,7 +133,7 @@
                             <div id="imageStyleDate" class="text-[16px] md:text-[17px] font-black text-[#1c1c1e] tracking-tight leading-tight">--</div>
                             
                             <!-- 天気アイコン -->
-                            <div id="imageStyleIcon" class="w-8 h-8 md:w-9 md:h-9 flex items-center justify-center my-0.5 select-none"></div>
+                            <div id="imageStyleIcon" class="w-10 h-10 md:w-11 md:h-11 flex items-center justify-center my-0.5 select-none"></div>
                             
                             <!-- 天気名 -->
                             <div id="imageStyleWeatherText" class="text-[16px] md:text-[17px] font-black text-[#1c1c1e] tracking-tight leading-tight mb-0.5">--</div>
@@ -320,7 +320,7 @@
                 <!-- 天気概要カード -->
                 <div class="bg-gradient-to-r from-orange-50/80 to-blue-50/80 rounded-xl p-3 border border-[#e5e5ea] flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div id="wModalIcon" class="w-12 h-12 flex items-center justify-center"></div>
+                        <div id="wModalIcon" class="w-14 h-14 flex items-center justify-center"></div>
                         <div>
                             <div id="wModalWeatherText" class="text-[16px] font-black text-[#1c1c1e]">--</div>
                             <div id="wModalWindText" class="text-[13px] font-bold text-[#4b5563] mt-0.5">風速: -- m/s</div>
@@ -1033,18 +1033,18 @@
             const isClear = text.includes('晴') && !isCloudy && !isRain;
 
             if (isClear) {
-                return `<svg viewBox="0 0 100 100" class="w-7 h-7 md:w-8 md:h-8 stroke-[#ff9500] fill-none stroke-[7] stroke-linecap-round"><circle cx="50" cy="50" r="20" /><line x1="50" y1="14" x2="50" y2="22" /><line x1="50" y1="78" x2="50" y2="86" /><line x1="14" y1="50" x2="22" y2="50" /><line x1="78" y1="50" x2="86" y2="50" /><line x1="24" y1="24" x2="30" y2="30" /><line x1="70" y1="70" x2="76" y2="76" /><line x1="24" y1="76" x2="30" y2="70" /><line x1="70" y1="30" x2="76" y2="24" /></svg>`;
+                return `<svg viewBox="0 0 100 100" class="w-9 h-9 md:w-10 md:h-10 stroke-[#ff9500] fill-none stroke-[7] stroke-linecap-round"><circle cx="50" cy="50" r="20" /><line x1="50" y1="14" x2="50" y2="22" /><line x1="50" y1="78" x2="50" y2="86" /><line x1="14" y1="50" x2="22" y2="50" /><line x1="78" y1="50" x2="86" y2="50" /><line x1="24" y1="24" x2="30" y2="30" /><line x1="70" y1="70" x2="76" y2="76" /><line x1="24" y1="76" x2="30" y2="70" /><line x1="70" y1="30" x2="76" y2="24" /></svg>`;
             }
             if (isRain) {
-                return `<svg viewBox="0 0 100 100" class="w-7 h-7 md:w-8 md:h-8 stroke-linecap-round"><path d="M 28 56 L 72 56 C 79 56 85 50 85 43 C 85 36 80 30 73 29 C 72 19 63 12 51 12 C 40 12 32 18 30 28 C 22 29 16 35 16 43 C 16 51 22 56 28 56 Z" class="stroke-[#9fa4aa] fill-none stroke-[7]" /><line x1="36" y1="66" x2="30" y2="78" class="stroke-[#007aff] stroke-[6]" /><line x1="54" y1="66" x2="48" y2="78" class="stroke-[#007aff] stroke-[6]" /><line x1="72" y1="66" x2="66" y2="78" class="stroke-[#007aff] stroke-[6]" /></svg>`;
+                return `<svg viewBox="0 0 100 100" class="w-9 h-9 md:w-10 md:h-10 stroke-linecap-round"><path d="M 28 56 L 72 56 C 79 56 85 50 85 43 C 85 36 80 30 73 29 C 72 19 63 12 51 12 C 40 12 32 18 30 28 C 22 29 16 35 16 43 C 16 51 22 56 28 56 Z" class="stroke-[#9fa4aa] fill-none stroke-[7]" /><line x1="36" y1="66" x2="30" y2="78" class="stroke-[#007aff] stroke-[6]" /><line x1="54" y1="66" x2="48" y2="78" class="stroke-[#007aff] stroke-[6]" /><line x1="72" y1="66" x2="66" y2="78" class="stroke-[#007aff] stroke-[6]" /></svg>`;
             }
             if (isThunder) {
-                return `<svg viewBox="0 0 100 100" class="w-7 h-7 md:w-8 md:h-8 stroke-linecap-round"><path d="M 28 52 L 72 52 C 79 52 85 46 85 39 C 85 32 80 26 73 25 C 72 16 63 10 51 10 C 40 10 32 16 30 25 C 22 26 16 32 16 39 C 16 47 22 52 28 52 Z" class="stroke-[#9fa4aa] fill-none stroke-[7]" /><polygon points="50,56 40,70 48,70 44,84 60,66 50,66" class="fill-[#ff9500] stroke-[#ff9500] stroke-[2]" /></svg>`;
+                return `<svg viewBox="0 0 100 100" class="w-9 h-9 md:w-10 md:h-10 stroke-linecap-round"><path d="M 28 52 L 72 52 C 79 52 85 46 85 39 C 85 32 80 26 73 25 C 72 16 63 10 51 10 C 40 10 32 16 30 25 C 22 26 16 32 16 39 C 16 47 22 52 28 52 Z" class="stroke-[#9fa4aa] fill-none stroke-[7]" /><polygon points="50,56 40,70 48,70 44,84 60,66 50,66" class="fill-[#ff9500] stroke-[#ff9500] stroke-[2]" /></svg>`;
             }
             if (text.includes('晴') && isCloudy) {
-                return `<svg viewBox="0 0 100 100" class="w-7 h-7 md:w-8 md:h-8 stroke-linecap-round"><circle cx="68" cy="34" r="13" class="stroke-[#ff9500] fill-none stroke-[6]" /><path d="M 26 72 L 68 72 C 75 72 80 67 80 60 C 80 54 76 49 70 48 C 69 38 60 32 50 32 C 40 32 32 38 30 46 C 23 47 18 52 18 58 C 18 66 22 72 26 72 Z" class="stroke-[#b0b3b8] fill-white stroke-[7]" /></svg>`;
+                return `<svg viewBox="0 0 100 100" class="w-9 h-9 md:w-10 md:h-10 stroke-linecap-round"><circle cx="68" cy="34" r="13" class="stroke-[#ff9500] fill-none stroke-[6]" /><path d="M 26 72 L 68 72 C 75 72 80 67 80 60 C 80 54 76 49 70 48 C 69 38 60 32 50 32 C 40 32 32 38 30 46 C 23 47 18 52 18 58 C 18 66 22 72 26 72 Z" class="stroke-[#b0b3b8] fill-white stroke-[7]" /></svg>`;
             }
-            return `<svg viewBox="0 0 100 100" class="w-7 h-7 md:w-8 md:h-8 stroke-[#b0b3b8] fill-none stroke-[7] stroke-linecap-round"><path d="M 28 66 L 72 66 C 80 66 86 60 86 52 C 86 45 81 39 74 38 C 73 27 63 20 51 20 C 40 20 32 26 30 36 C 22 37 16 43 16 51 C 16 59 22 66 28 66 Z" /></svg>`;
+            return `<svg viewBox="0 0 100 100" class="w-9 h-9 md:w-10 md:h-10 stroke-[#b0b3b8] fill-none stroke-[7] stroke-linecap-round"><path d="M 28 66 L 72 66 C 80 66 86 60 86 52 C 86 45 81 39 74 38 C 73 27 63 20 51 20 C 40 20 32 26 30 36 C 22 37 16 43 16 51 C 16 59 22 66 28 66 Z" /></svg>`;
         }
 
         async function fetchForecastData(isPullRefresh = false) {
@@ -1469,19 +1469,19 @@
             `;
 
             document.getElementById('timeTimeline').innerHTML = `
-                <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
+                <div class="bg-[#f8f9fa] rounded-md py-1.5 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">朝 (8時) 体感</div>
-                    <div class="font-black text-[#1c1c1e] font-mono text-[17px] leading-none my-0.5">${validNumber(data.morningTemp) ? Math.round(data.morningTemp) : "--"}℃</div>
+                    <div class="font-black text-[#1c1c1e] font-mono text-[17px] leading-none my-1">${validNumber(data.morningTemp) ? Math.round(data.morningTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.morningTemp) ? 'データなし' : data.morningTemp <= 15 ? '羽織り推奨' : '快適'}</div>
                 </div>
-                <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
+                <div class="bg-[#f8f9fa] rounded-md py-1.5 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">昼 (14時) 体感</div>
-                    <div class="font-black text-orange-600 font-mono text-[17px] leading-none my-0.5">${validNumber(data.noonTemp) ? Math.round(data.noonTemp) : "--"}℃</div>
+                    <div class="font-black text-orange-600 font-mono text-[17px] leading-none my-1">${validNumber(data.noonTemp) ? Math.round(data.noonTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.noonTemp) ? 'データなし' : data.noonTemp >= 22 ? '上着不要' : '適温'}</div>
                 </div>
-                <div class="bg-[#f8f9fa] rounded-md py-1 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
+                <div class="bg-[#f8f9fa] rounded-md py-1.5 px-1 border border-[#e5e5ea] flex flex-col items-center justify-between">
                     <div class="text-[#4b5563] text-[12px] font-bold leading-none">夜 (20時) 体感</div>
-                    <div class="font-black text-[#007aff] font-mono text-[17px] leading-none my-0.5">${validNumber(data.nightTemp) ? Math.round(data.nightTemp) : "--"}℃</div>
+                    <div class="font-black text-[#007aff] font-mono text-[17px] leading-none my-1">${validNumber(data.nightTemp) ? Math.round(data.nightTemp) : "--"}℃</div>
                     <div class="text-[12px] font-extrabold text-[#374151] leading-none">${!validNumber(data.nightTemp) ? 'データなし' : data.nightTemp <= 14 ? '冷え込み注意' : '過ごしやすい'}</div>
                 </div>
             `;
@@ -1536,13 +1536,13 @@
             }
 
             listEl.innerHTML = displayList.map(item => `
-                <div class="flex items-center justify-between py-2 px-2 hover:bg-[#f8f9fa] text-[16px] whitespace-nowrap">
-                    <div class="w-12 shrink-0 font-extrabold font-mono text-[#1c1c1e] text-[16px]">${item.hour}:00</div>
-                    <div class="w-8 shrink-0 flex items-center justify-center scale-110">${renderWeeklyListIcon(item.weatherCode)}</div>
-                    <div class="w-12 shrink-0 font-mono font-black text-center text-[#1c1c1e] text-[16px]">${item.temp}℃</div>
-                    <div class="w-12 shrink-0 font-mono font-bold text-center text-[#b45309] text-[16px]">${item.apparentTemp}℃</div>
-                    <div class="w-12 shrink-0 font-mono font-extrabold text-right text-[#007aff] text-[16px]">${item.pop}%</div>
-                    <div class="w-12 shrink-0 font-mono font-bold text-right text-cyan-800 text-[16px]">${item.windSpeed}m/s</div>
+                <div class="grid grid-cols-6 items-center py-2 px-1 hover:bg-[#f8f9fa] text-[16px] whitespace-nowrap">
+                    <div class="min-w-0 font-extrabold font-mono text-center text-[#1c1c1e] text-[16px]">${item.hour}:00</div>
+                    <div class="min-w-0 flex items-center justify-center scale-125">${renderWeeklyListIcon(item.weatherCode)}</div>
+                    <div class="min-w-0 font-mono font-black text-center text-[#1c1c1e] text-[16px]">${item.temp}℃</div>
+                    <div class="min-w-0 font-mono font-bold text-center text-[#b45309] text-[16px]">${item.apparentTemp}℃</div>
+                    <div class="min-w-0 font-mono font-extrabold text-center text-[#007aff] text-[16px]">${item.pop}%</div>
+                    <div class="min-w-0 font-mono font-bold text-center text-cyan-800 text-[16px]">${item.windSpeed}m/s</div>
                 </div>
             `).join('');
         }
@@ -1581,16 +1581,16 @@
             if(code==null) return '<span class="text-gray-400">--</span>';
             code=normalizeWeatherCode(code);
             if(code===null) return '<span class="text-gray-400">--</span>';
-            if((code>=71&&code<=77)||(code>=85&&code<=86)) return '<svg viewBox="0 0 40 32" class="w-5 h-4"><path d="M8 20H30Q36 17 32 10Q27 6 24 8Q17 0 10 10Q3 12 8 20" fill="#b0b5bc"/><circle cx="12" cy="26" r="2" fill="#64b5f6"/><circle cx="22" cy="27" r="2" fill="#64b5f6"/></svg>';
-            if(code===3 || code===45 || code===48) return '<svg viewBox="0 0 40 32" class="w-5 h-4"><path d="M8 24H30Q38 20 32 12Q27 8 24 10Q17 0 10 12Q2 14 8 24" fill="none" stroke="#b0b5bc" stroke-width="2"/></svg>';
+            if((code>=71&&code<=77)||(code>=85&&code<=86)) return '<svg viewBox="0 0 40 32" class="w-8 h-7"><path d="M8 20H30Q36 17 32 10Q27 6 24 8Q17 0 10 10Q3 12 8 20" fill="#b0b5bc"/><circle cx="12" cy="26" r="2" fill="#64b5f6"/><circle cx="22" cy="27" r="2" fill="#64b5f6"/></svg>';
+            if(code===3 || code===45 || code===48) return '<svg viewBox="0 0 40 32" class="w-8 h-7"><path d="M8 24H30Q38 20 32 12Q27 8 24 10Q17 0 10 12Q2 14 8 24" fill="none" stroke="#b0b5bc" stroke-width="2"/></svg>';
 
             if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) {
-                return `<svg viewBox="0 0 40 32" class="w-5 h-4"><path d="M12 18 L28 18 C32 18 35 15 35 12 C35 8 32 6 28 6 C27 3 24 1 20 1 C15 1 12 4 11 8 C7 8 5 11 5 14 C5 17 8 18 12 18 Z" fill="#b0b5bc" /><line x1="16" y1="21" x2="13" y2="26" stroke="#007aff" stroke-width="2" stroke-linecap="round" /><line x1="24" y1="21" x2="21" y2="26" stroke="#007aff" stroke-width="2" stroke-linecap="round" /></svg>`;
+                return `<svg viewBox="0 0 40 32" class="w-8 h-7"><path d="M12 18 L28 18 C32 18 35 15 35 12 C35 8 32 6 28 6 C27 3 24 1 20 1 C15 1 12 4 11 8 C7 8 5 11 5 14 C5 17 8 18 12 18 Z" fill="#b0b5bc" /><line x1="16" y1="21" x2="13" y2="26" stroke="#007aff" stroke-width="2" stroke-linecap="round" /><line x1="24" y1="21" x2="21" y2="26" stroke="#007aff" stroke-width="2" stroke-linecap="round" /></svg>`;
             }
             if (code === 0 || code === 1) {
-                return `<svg viewBox="0 0 40 32" class="w-5 h-4"><circle cx="20" cy="16" r="6" fill="#ff7a00" /><line x1="20" y1="5" x2="20" y2="8" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="20" y1="24" x2="20" y2="27" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="9" y1="16" x2="12" y2="16" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="28" y1="16" x2="31" y2="16" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /></svg>`;
+                return `<svg viewBox="0 0 40 32" class="w-8 h-7"><circle cx="20" cy="16" r="6" fill="#ff7a00" /><line x1="20" y1="5" x2="20" y2="8" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="20" y1="24" x2="20" y2="27" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="9" y1="16" x2="12" y2="16" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /><line x1="28" y1="16" x2="31" y2="16" stroke="#ff7a00" stroke-width="2" stroke-linecap="round" /></svg>`;
             }
-            return `<svg viewBox="0 0 40 32" class="w-5 h-4"><circle cx="25" cy="13" r="5" fill="#ff7a00" /><path d="M11 22 L24 22 C28 22 30 19 30 16 C30 13 28 11 24 11 C24 8 20 6 17 6 C13 6 10 8 9 12 C6 12 4 15 4 17 C4 20 7 22 11 22 Z" fill="#ffffff" stroke="#c0c4cc" stroke-width="2" /></svg>`;
+            return `<svg viewBox="0 0 40 32" class="w-8 h-7"><circle cx="25" cy="13" r="5" fill="#ff7a00" /><path d="M11 22 L24 22 C28 22 30 19 30 16 C30 13 28 11 24 11 C24 8 20 6 17 6 C13 6 10 8 9 12 C6 12 4 15 4 17 C4 20 7 22 11 22 Z" fill="#ffffff" stroke="#c0c4cc" stroke-width="2" /></svg>`;
         }
 
         function renderWeeklyList(meteoData, jmaData) {
@@ -1694,15 +1694,15 @@
                 return `
                     <div 
                         onclick="openWeeklyDayDetailModal('${dateStr}')" 
-                        class="group cursor-pointer bg-[#f8f9fa] hover:bg-white active:bg-orange-50/50 border border-[#e5e5ea] hover:border-[#ff9500] hover:shadow-md active:scale-95 rounded-lg p-1 flex flex-col items-center justify-between text-center min-h-[96px] transition-all duration-150 relative">
+                        class="group cursor-pointer bg-[#f8f9fa] hover:bg-white active:bg-orange-50/50 border border-[#e5e5ea] hover:border-[#ff9500] hover:shadow-md active:scale-95 rounded-lg px-1 py-1.5 flex flex-col items-center justify-between text-center min-h-[102px] transition-all duration-150 relative">
                         <div class="w-full">
                             <div class="text-[14px] font-bold text-[#8e8e93] font-mono leading-none">${d.getMonth() + 1}/${d.getDate()}</div>
                             <div class="text-[14px] font-black ${colorClass} leading-tight mt-0.5">(${dayNames[dayIndex]})</div>
                         </div>
 
-                        <div class="w-6 h-5 flex items-center justify-center my-0.5 group-hover:scale-110 transition-transform">${renderWeeklyListIcon(code)}</div>
+                        <div class="w-9 h-8 flex items-center justify-center my-1 group-hover:scale-110 transition-transform">${renderWeeklyListIcon(code)}</div>
 
-                        <div class="flex items-baseline justify-center gap-1 font-mono font-black text-[14px] leading-tight my-0.5">
+                        <div class="flex items-baseline justify-center gap-1 font-mono font-black text-[14px] leading-tight my-1">
                             <span class="text-[#e03131]">${maxT ?? '--'}℃</span>
                             <span class="text-[#007aff]">${minT ?? '--'}℃</span>
                         </div>
