@@ -116,6 +116,7 @@
                 </div>
             </div>
         </header>
+        <div id="errorBox" role="alert" class="hidden shrink-0 mx-3 mt-2 bg-[#fee2e2] border border-[#f87171] rounded-xl p-3 text-[14px] text-[#b91c1c] leading-relaxed break-words max-h-[25vh] overflow-y-auto"></div>
 
         <!-- メイン画面（h-full flex-1 overflow-hidden） -->
         <main class="flex-1 p-1.5 md:p-2 overflow-hidden min-h-0">
@@ -539,9 +540,10 @@
             const r=rows.find(r=>t>=r[0]); return {label:r[1],jacket:r[2],pants:r[3]};
         }
 
+        const CURRENT_LOCATION = '__current_location__';
         let locations = [];
         let locationNames = Object.create(null);
-        function getLocationLabel(address) { return locationNames[address] || address; }
+        function getLocationLabel(address) { return address === CURRENT_LOCATION ? '現在地' : (locationNames[address] || address); }
         let locationManagerOpen = false;
         let locationEditorOpen = false;
         function openLocationManager() {
@@ -550,7 +552,7 @@
             document.getElementById('locationManagerModal').classList.remove('hidden');
         }
         function selectLocationFromManager(address) {
-            if (!locations.includes(address)) return;
+            if (address !== CURRENT_LOCATION && !locations.includes(address)) return;
             closeLocationManager();
             handleResultLocationSelect(address);
         }
@@ -716,7 +718,7 @@
             if (!locations.length) locations = ['東京都品川区'];
 
             const active = localStorage.getItem(STORAGE_KEY_ACTIVE);
-            activeLocation = (active && locations.includes(active)) ? active : locations[0];
+            activeLocation = (active && (active === CURRENT_LOCATION || locations.includes(active))) ? active : locations[0];
         }
 
         function saveLocationsToStorage() {
@@ -729,7 +731,7 @@
             const container = document.getElementById('locationTagsContainer');
             if (container) {
                 container.innerHTML = '';
-                locations.forEach(address => {
+                [CURRENT_LOCATION, ...locations.filter(loc => loc !== CURRENT_LOCATION)].forEach(address => {
                     const row = document.createElement('div');
                     row.className = 'flex items-center gap-2 border border-[#e5e5ea] rounded-lg p-2';
                     const text = document.createElement('button');
@@ -760,8 +762,10 @@
                     remove.disabled = locations.length <= 1;
                     remove.onclick = () => handleDeleteLocation(address);
                     row.appendChild(text);
-                    row.appendChild(edit);
-                    row.appendChild(remove);
+                    if (address !== CURRENT_LOCATION) {
+                        row.appendChild(edit);
+                        row.appendChild(remove);
+                    }
                     container.appendChild(row);
                 });
             }
@@ -772,7 +776,7 @@
             const selectEl = document.getElementById('resultLocationSelect');
             if (!selectEl) return;
             selectEl.innerHTML = '';
-            locations.forEach((loc) => {
+            [CURRENT_LOCATION, ...locations.filter(loc => loc !== CURRENT_LOCATION)].forEach((loc) => {
                 const opt = document.createElement('option');
                 opt.value = loc;
                 opt.textContent = getLocationLabel(loc);
@@ -894,7 +898,52 @@
             try {const r=await fetch(url,{signal:controller.signal,cache:'no-store'});if(!r.ok) throw new Error('HTTP '+r.status);return await r.json();}
             finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);}
         }
+        function acquireCurrentPosition(signal) {
+            return new Promise((resolve, reject) => {
+                if (!window.isSecureContext) return reject(new Error('現在地はGitHub PagesのHTTPS公開ページで使用してください。'));
+                if (!navigator.geolocation) return reject(new Error('この端末では現在地を取得できません。登録済み地点を選んでください。'));
+                const abort = () => finish(new DOMException('Aborted', 'AbortError'));
+                let done = false;
+                let timer;
+                function finish(error, position) {
+                    if (done) return;
+                    done = true;
+                    clearTimeout(timer);
+                    signal?.removeEventListener('abort', abort);
+                    if (error) reject(error); else resolve(position);
+                }
+                if (signal?.aborted) return abort();
+                signal?.addEventListener('abort', abort, {once:true});
+                timer = setTimeout(() => finish(new Error('現在地の取得が時間切れになりました。屋外などで再度お試しください。')), 20000);
+                navigator.geolocation.getCurrentPosition(
+                    position => finish(null, position),
+                    error => finish(new Error(error.code === 1
+                        ? '位置情報が許可されていません。端末・ブラウザの位置情報を許可するか、登録済み地点を選んでください。'
+                        : error.code === 3 ? '現在地の取得が時間切れになりました。再度お試しください。'
+                        : '現在地を取得できません。位置情報の設定と通信を確認してください。')),
+                    {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+                );
+            });
+        }
+        async function resolveCurrentArea(signal) {
+            const position = await acquireCurrentPosition(signal);
+            const lat = position.coords.latitude, lon = position.coords.longitude;
+            if (!validNumber(lat) || !validNumber(lon) || Math.abs(lat)>90 || Math.abs(lon)>180)
+                throw new Error('現在地の座標を取得できません。');
+            const [reverse, tree] = await Promise.all([
+                getJSON('https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat='+encodeURIComponent(lat)+'&lon='+encodeURIComponent(lon), signal),
+                areaTree ? Promise.resolve(areaTree) : getJSON('https://www.jma.go.jp/bosai/common/const/area.json', signal)
+            ]);
+            areaTree = tree;
+            const muni = String(reverse.results?.muniCd || '').padStart(5, '0');
+            const city = tree.class20s?.[muni+'00'];
+            const region = tree.class15s?.[city?.parent]?.parent;
+            const office = tree.class10s?.[region]?.parent;
+            if (!city || !office) throw new Error('現在地の日本の予報区域を特定できません。登録済み地点を選んでください。');
+            return {lat, lon, code:office, region, title:city.name};
+        }
         async function resolveAreaAndCoords(name, signal) {
+            if (name === CURRENT_LOCATION) return resolveCurrentArea(signal);
             if(resolvedLocations.has(name)) return resolvedLocations.get(name);
             const [hits,tree]=await Promise.all([
                 getJSON('https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(name),signal),
@@ -1119,7 +1168,7 @@
                     }
                 }
 
-                if (jmaOverviewTitle) jmaOverviewTitle.innerText = overviewTarget || targetLocation;
+                if (jmaOverviewTitle) jmaOverviewTitle.innerText = overviewTarget || getLocationLabel(targetLocation);
                 if (jmaReportTimeBadge) jmaReportTimeBadge.innerText = overviewReportTime || '気象庁発表時刻：取得不可';
 
                 let jmaData = null;
@@ -1407,7 +1456,7 @@
             } catch (err) {
                 if(generation!==requestGeneration) return;
                 cachedForecastData=null; cachedRawMeteoData=null;
-                renderForecastView({weatherText:"データ取得不可",windText:"データなし",pop6h:[null,null,null,null],targetDateFormatted:targetLocation+"：取得失敗"});
+                renderForecastView({weatherText:"データ取得不可",windText:"データなし",pop6h:[null,null,null,null],targetDateFormatted:getLocationLabel(targetLocation)+"：取得失敗"});
                 document.getElementById("mainWeeklyList").textContent="予報データを取得できません";
                 document.getElementById("nextRainText").textContent="降水予報を取得できません";
                 console.error("Forecast Error:", err);
