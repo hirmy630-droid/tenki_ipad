@@ -417,6 +417,7 @@
             <div class="flex items-center justify-between gap-2"><h3 id="locationManagerTitle" class="text-[17px] font-bold">登録地点の追加・管理</h3>
             <span id="saveStatus" class="text-[12px] text-[#34c759] opacity-0">保存完了</span></div>
             <button type="button" onclick="openLocationEditor()" class="ios-btn w-full bg-[#007aff] text-white font-bold py-2 rounded-lg">＋ 地点登録</button>
+            <button id="currentLocationButton" type="button" onclick="useCurrentLocation()" style="width:100%;min-height:44px;border:1px solid #d1d1d6;border-radius:10px;background:#f2f2f7;color:#007aff;font-size:14px;font-weight:700;padding:8px;">📍 現在地を取得・再取得</button>
             <div id="locationTagsContainer" class="space-y-2"></div>
             <button type="button" onclick="closeLocationManager()" class="ios-btn w-full bg-[#f2f2f7] font-bold py-2 rounded-lg">閉じる</button>
         </div>
@@ -588,9 +589,74 @@
             const r=rows.find(r=>t>=r[0]); return {label:r[1],jacket:r[2],pants:r[3]};
         }
 
+
+        // Coordinates are held in memory only. No background position tracking.
+        const CURRENT_LOCATION_KEY = '__weather_current_location__';
+        let currentAreaInfo = null;
+        let currentLocationEpoch = 0;
+        let currentLocationController = null;
+        function cancelCurrentLocationRequest() {
+            currentLocationEpoch++;
+            currentLocationController?.abort();
+            currentLocationController = null;
+            const button = document.getElementById('currentLocationButton');
+            if (button) { button.disabled = false; button.textContent = '📍 現在地を取得・再取得'; }
+        }
+        async function useCurrentLocation() {
+            cancelCurrentLocationRequest();
+            const epoch = currentLocationEpoch;
+            const previous = activeLocation;
+            const controller = new AbortController();
+            currentLocationController = controller;
+            const button = document.getElementById('currentLocationButton');
+            if (button) { button.disabled = true; button.textContent = '現在地を取得中…'; }
+            updateResultLocationSelect();
+            try {
+                if (!window.isSecureContext || !navigator.geolocation) throw new Error('現在地の取得に対応していません。GitHub PagesのHTTPSで開いてください。');
+                const position = await new Promise((resolve, reject) => {
+                    navigator.geolocation.getCurrentPosition(resolve, reject, {enableHighAccuracy:false,timeout:15000,maximumAge:0});
+                });
+                if (epoch !== currentLocationEpoch || controller.signal.aborted) return false;
+                const lat = position.coords.latitude, lon = position.coords.longitude;
+                if (!validNumber(lat) || !validNumber(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) throw new Error('現在地の座標を取得できませんでした。');
+                const [address, tree] = await Promise.all([
+                    getJSON(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${lat}&lon=${lon}`, controller.signal),
+                    areaTree ? Promise.resolve(areaTree) : getJSON('https://www.jma.go.jp/bosai/common/const/area.json', controller.signal)
+                ]);
+                if (epoch !== currentLocationEpoch || controller.signal.aborted || activeLocation !== previous) return false;
+                const muni = String(address.results?.muniCd || '').padStart(5,'0');
+                const city = tree.class20s?.[muni+'00'];
+                const region = tree.class15s?.[city?.parent]?.parent;
+                const office = tree.class10s?.[region]?.parent;
+                if (!city || !region || !office) throw new Error('現在地の日本の予報区域を取得できません。登録地点を選ぶか、再取得してください。');
+                areaTree = tree;
+                currentAreaInfo = {lat,lon,code:office,region,title:city.name + (address.results?.lv01Nm || '')};
+                activeLocation = CURRENT_LOCATION_KEY;
+                renderLocations();
+                if (typeof closeLocationManager === 'function') closeLocationManager();
+                return await fetchForecastData(false);
+            } catch (error) {
+                if (epoch !== currentLocationEpoch || controller.signal.aborted || activeLocation !== previous) return false;
+                updateResultLocationSelect();
+                const message = error.code === 1 ? '位置情報が許可されていません。ブラウザ・端末の位置情報の許可を確認してください。'
+                    : error.code === 2 ? '現在地を取得できませんでした。場所を変えて再度お試しください。'
+                    : error.code === 3 ? '現在地の取得が時間切れになりました。再度お試しください。'
+                    : error.name === 'AbortError' ? '現在地の住所取得が時間切れになりました。通信を確認してください。'
+                    : (error.message || '現在地を取得できませんでした。');
+                alert(message);
+                return false;
+            } finally {
+                if (epoch === currentLocationEpoch) {
+                    currentLocationController = null;
+                    if (button) { button.disabled = false; button.textContent = '📍 現在地を取得・再取得'; }
+                    updateResultLocationSelect();
+                }
+            }
+        }
+
         let locations = [];
         let locationNames = Object.create(null);
-        function getLocationLabel(address) { return locationNames[address] || address; }
+        function getLocationLabel(address) { return address === CURRENT_LOCATION_KEY ? '現在地' + (currentAreaInfo ? '（' + currentAreaInfo.title + '）' : '') : locationNames[address] || address; }
         let locationManagerOpen = false;
         let locationEditorOpen = false;
         function openLocationManager() {
@@ -771,7 +837,7 @@
         function saveLocationsToStorage() {
             localStorage.setItem(STORAGE_KEY_NAMES, JSON.stringify(locationNames));
             localStorage.setItem(STORAGE_KEY_LIST, JSON.stringify(locations));
-            localStorage.setItem(STORAGE_KEY_ACTIVE, activeLocation);
+            if (activeLocation !== CURRENT_LOCATION_KEY) localStorage.setItem(STORAGE_KEY_ACTIVE, activeLocation);
         }
 
         function renderLocations() {
@@ -821,6 +887,10 @@
             const selectEl = document.getElementById('resultLocationSelect');
             if (!selectEl) return;
             selectEl.innerHTML = '';
+            const currentOption = document.createElement('option');
+            currentOption.value = CURRENT_LOCATION_KEY;
+            currentOption.textContent = currentLocationController ? '現在地を取得中…' : getLocationLabel(CURRENT_LOCATION_KEY);
+            selectEl.appendChild(currentOption);
             locations.forEach((loc) => {
                 const opt = document.createElement('option');
                 opt.value = loc;
@@ -833,6 +903,8 @@
         }
 
         function handleResultLocationSelect(newLoc) {
+            if (newLoc === CURRENT_LOCATION_KEY) { useCurrentLocation(); return; }
+            cancelCurrentLocationRequest();
             if (!newLoc || newLoc === activeLocation) return;
             activeLocation = newLoc;
             saveLocationsToStorage();
@@ -845,6 +917,7 @@
         }
 
         function handleAddLocation() {
+            cancelCurrentLocationRequest();
             const input = document.getElementById('locationInput');
             const nameInput = document.getElementById('locationNameInput');
             const status = document.getElementById('saveStatus');
@@ -944,6 +1017,10 @@
             finally {clearTimeout(timer);signal?.removeEventListener('abort',abort);}
         }
         async function resolveAreaAndCoords(name, signal) {
+            if (name === CURRENT_LOCATION_KEY) {
+                if (!currentAreaInfo) throw new Error('現在地を再取得してください。');
+                return {...currentAreaInfo};
+            }
             if(resolvedLocations.has(name)) return resolvedLocations.get(name);
             const [hits,tree]=await Promise.all([
                 getJSON('https://msearch.gsi.go.jp/address-search/AddressSearch?q='+encodeURIComponent(name),signal),
@@ -1097,6 +1174,8 @@
         }
 
         async function fetchForecastData(isPullRefresh = false) {
+            closeHourClothingDialog();
+            hourClothingData = null;
             const generation = ++requestGeneration;
             forecastAbort?.abort();
             forecastAbort = new AbortController();
@@ -1456,7 +1535,7 @@
             } catch (err) {
                 if(generation!==requestGeneration) return;
                 cachedForecastData=null; cachedRawMeteoData=null;
-                renderForecastView({weatherText:"データ取得不可",windText:"データなし",pop6h:[null,null,null,null],targetDateFormatted:targetLocation+"：取得失敗"});
+                renderForecastView({weatherText:"データ取得不可",windText:"データなし",pop6h:[null,null,null,null],targetDateFormatted:getLocationLabel(targetLocation)+"：取得失敗"});
                 document.getElementById("mainWeeklyList").textContent="予報データを取得できません";
                 document.getElementById("nextRainText").textContent="降水予報を取得できません";
                 console.error("Forecast Error:", err);
