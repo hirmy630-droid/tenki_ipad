@@ -155,7 +155,7 @@
                         <div class="pt-1.5 pb-1 border-t border-[#f2f2f7] space-y-1 shrink-0">
                             <div class="flex items-center justify-between gap-2 px-0.5">
                                 <div class="text-[14px] font-extrabold text-[#1c1c1e] leading-none">降水確率 (6時間毎)</div>
-                                <a id="radarButton" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation(); configureRadarLink(this)" class="bg-blue-50 hover:bg-blue-100 text-[#007aff] font-semibold text-[14px] rounded-lg border border-blue-200 px-3 shrink-0 inline-flex items-center justify-center" style="min-height:30px;" aria-label="レーダー：Yahoo!天気の雨雲レーダーを開く" title="Yahoo!天気の雨雲レーダーを開きます（iPhone・iPadはショートカット経由）">レーダー</a>
+                                <a id="radarButton" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation(); this.href = getHighResolutionRadarUrl()" class="bg-blue-50 hover:bg-blue-100 text-[#007aff] font-semibold text-[14px] rounded-lg border border-blue-200 px-3 shrink-0 inline-flex items-center justify-center" style="min-height:30px;" aria-label="レーダー：Yahoo!天気の雨雲レーダーを開く" title="Yahoo!天気の雨雲レーダーを別画面で開きます">レーダー</a>
                             </div>
                             <div class="grid grid-cols-4 gap-1.5 text-center font-mono">
                                 <div class="bg-[#f8f9fa] border border-[#e5e5ea] rounded-lg py-0.5">
@@ -1010,20 +1010,6 @@
         const resolvedLocations = new Map();
         // Yahoo!天気の公式雨雲レーダーを別画面で開く。
         // 取得済みの選択地点を使用し、追加の位置情報取得や通信は行わない。
-        // iPhone・iPadはユーザー作成済みのショートカットを実行する。
-        // PC・Androidでは選択地点のYahoo!天気Webレーダーを開く。
-        function configureRadarLink(link) {
-            const appleMobile = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-            if (appleMobile) {
-                link.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent('Yahoo雨雲レーダー');
-                link.target = '_self';
-            } else {
-                link.href = getHighResolutionRadarUrl();
-                link.target = '_blank';
-            }
-        }
-
         function getHighResolutionRadarUrl() {
             const base = 'https://weather.yahoo.co.jp/weather/zoomradar/';
             const info = activeLocation === CURRENT_LOCATION_KEY
