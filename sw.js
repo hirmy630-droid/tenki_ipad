@@ -1,5 +1,5 @@
 'use strict';
-const VERSION = '20261013-034650-current-location';
+const VERSION = '20261013-225108-native-radar';
 const BASE = self.registration.scope;
 const PREFIX = 'weather-pwa-' + encodeURIComponent(BASE) + '-';
 const CACHE_NAME = PREFIX + VERSION;
@@ -37,7 +37,7 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       try {
         const response = await fetch(request, { cache: 'no-store' });
-        if (!response.ok) throw new Error('Document fetch failed');
+        if (!response.ok) return response;
         const cache = await caches.open(CACHE_NAME);
         await cache.put(INDEX, response.clone());
         return response;
