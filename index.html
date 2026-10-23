@@ -108,6 +108,7 @@
                     <div class="grid grid-cols-2 gap-1 bg-[#e5e5ea]/80 p-0.5 rounded-lg border border-[#d1d1d6] text-[14px]">
                         <button type="button" id="resTabToday" onclick="switchResultDay('today')" class="ios-btn px-2.5 py-0.5 font-bold rounded-md bg-[#ff9500] text-white shadow-xs">今日</button>
                         <button type="button" id="resTabTomorrow" onclick="switchResultDay('tomorrow')" class="ios-btn px-2.5 py-0.5 font-bold rounded-md text-[#4b5563] hover:text-[#1c1c1e]">明日</button>
+                        <button type="button" id="resTabDayAfter" onclick="switchResultDay('dayAfterTomorrow')" class="ios-btn px-2.5 py-0.5 font-bold rounded-md text-[#4b5563] hover:text-[#1c1c1e]">明後日</button>
                     </div>
 
                     <button type="button" onclick="toggleSettingsModal(true)" class="ios-btn text-[#4b5563] hover:text-[#1c1c1e] bg-[#f2f2f7] px-2 py-0.5 rounded-lg border border-[#d1d1d6] text-[15px] font-bold" title="設定">
@@ -555,7 +556,7 @@
             const data = hourClothingData;
             const temperature = data[({8:'morningTemp',14:'noonTemp',20:'nightTemp'})[hour]];
             const available = validNumber(temperature);
-            const outfit = available ? evaluateClothingByCriteria(temperature) : null;
+            const outfit = available ? evaluateClothingByCriteria(temperature, data.maxWindSpeed) : null;
             document.getElementById('hourClothingTitle').textContent = `${data.targetDateFormatted || ''} ${hour}時の服装`;
             document.getElementById('hourClothingTemperature').textContent = available ? `体感温度 ${Math.round(temperature)}℃` : '体感温度：データなし';
             document.getElementById('hourClothingJacket').textContent = outfit ? outfit.jacket : 'この時間の体感温度を取得できません';
@@ -577,19 +578,21 @@
             hourClothingTrigger = null;
         });
 
-        function evaluateClothingByCriteria(t) {
+        function evaluateClothingByCriteria(t, windSpeed = null) {
             if (!Number.isFinite(t)) return {label:'判定できません',jacket:'10〜15時の体感温度データを取得できません',pants:'データ取得後に判定します'};
+            const adjusted = t - (Number.isFinite(windSpeed) && windSpeed >= 5 ? 1 : 0);
             const rows = [
                 [31,'31℃以上','空調服','夏ズボン'],
-                [25,'25℃以上31℃未満','半袖シャツ','夏ズボン'],
-                [21,'21℃以上25℃未満','長袖','ズボン'],
-                [18,'18℃以上21℃未満','長袖＋ジャケット','冬ズボン'],
-                [15,'15℃以上18℃未満','インナー＋長袖＋ジャケット','インナー＋冬ズボン'],
-                [11,'11℃以上15℃未満','防寒インナー＋長袖＋軽防寒服','インナー＋軽防寒ズボン'],
-                [6,'6℃以上11℃未満','防寒インナー＋長袖シャツ＋ジャケット＋軽防寒服','防寒インナー＋軽防寒ズボン'],
-                [-Infinity,'6℃未満','防寒インナー＋長袖シャツ＋重防寒服','防寒インナー＋防寒ズボン']
+                [25,'25〜30℃','半袖シャツ','夏ズボン'],
+                [21,'21〜24℃','長袖','ズボン'],
+                [16,'16〜20℃','長袖＋ジャケット','冬ズボン'],
+                [13,'13〜15℃','インナー＋長袖＋冬ジャケット','インナー＋冬ズボン'],
+                [11,'11〜12℃','防寒インナー＋長袖＋軽防寒服','インナー＋軽防寒ズボン'],
+                [6,'6〜10℃','防寒インナー＋軽防寒長袖＋軽防寒服','防寒インナー＋軽防寒ズボン'],
+                [-Infinity,'5℃以下','防寒インナー＋防寒長袖＋重防寒服','防寒インナー＋防寒ズボン']
             ];
-            const r=rows.find(r=>t>=r[0]); return {label:r[1],jacket:r[2],pants:r[3]};
+            const r = rows.find(r => adjusted >= r[0]);
+            return {label:r[1],jacket:r[2],pants:r[3]};
         }
 
 
@@ -718,18 +721,17 @@
         }
 
         function updateTabStyles() {
-            const isToday = (selectedDay === 'today');
-            const resToday = document.getElementById('resTabToday');
-            const resTomorrow = document.getElementById('resTabTomorrow');
-            
-            if (resToday && resTomorrow) {
-                if (isToday) {
-                    resToday.className = 'ios-btn px-2.5 py-0.5 font-bold rounded-md bg-[#ff9500] text-white shadow-xs';
-                    resTomorrow.className = 'ios-btn px-2.5 py-0.5 font-bold rounded-md text-[#4b5563] hover:text-[#1c1c1e]';
-                } else {
-                    resTomorrow.className = 'ios-btn px-2.5 py-0.5 font-bold rounded-md bg-[#ff9500] text-white shadow-xs';
-                    resToday.className = 'ios-btn px-2.5 py-0.5 font-bold rounded-md text-[#4b5563] hover:text-[#1c1c1e]';
-                }
+            const tabs = {
+                today: document.getElementById('resTabToday'),
+                tomorrow: document.getElementById('resTabTomorrow'),
+                dayAfterTomorrow: document.getElementById('resTabDayAfter')
+            };
+            for (const [day, button] of Object.entries(tabs)) {
+                if (!button) continue;
+                button.className = day === selectedDay
+                    ? 'ios-btn px-2.5 py-0.5 font-bold rounded-md bg-[#ff9500] text-white shadow-xs'
+                    : 'ios-btn px-2.5 py-0.5 font-bold rounded-md text-[#4b5563] hover:text-[#1c1c1e]';
+                button.setAttribute('aria-pressed', String(day === selectedDay));
             }
         }
 
@@ -760,7 +762,8 @@
                 const diffY = touchEndY - touchStartY;
 
                 if (elapsedTime <= MAX_TIME && Math.abs(diffX) >= SWIPE_THRESHOLD && Math.abs(diffY) <= RESTRAINT) {
-                    const nextDay = (selectedDay === 'today') ? 'tomorrow' : 'today';
+                    const days = ['today', 'tomorrow', 'dayAfterTomorrow'];
+                    const nextDay = days[(days.indexOf(selectedDay) + (diffX < 0 ? 1 : 2)) % 3];
                     switchResultDay(nextDay);
                 }
             };
@@ -1163,6 +1166,11 @@
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         }
 
+        function getDateStringDaysAhead(daysAhead) {
+            const now = jstClock(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
+            return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        }
+
         function getTomorrowDateString() {
             const now = jstClock(Date.now() + 24 * 60 * 60 * 1000);
             return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -1224,6 +1232,7 @@
 
                 const todayStr = getTodayDateString();
                 const tomorrowStr = getTomorrowDateString();
+                const dayAfterTomorrowStr = getDateStringDaysAhead(2);
 
                 const cacheBuster = `&_t=${Date.now()}`;
                 const jmaForecastUrl = `https://www.jma.go.jp/bosai/forecast/data/forecast/${areaCode}.json?_t=${Date.now()}`;
@@ -1526,15 +1535,17 @@
                     };
                 };
 
-                const dates=new Set([todayStr,tomorrowStr,...(meteoData?.daily?.time||[]),...(jmaData?.[1]?.timeSeries?.[0]?.timeDefines||[]).map(t=>t.slice(0,10))]);
-                for(const date of dates) dailySummaries[date]=parseDayData(date,0,date===todayStr?'今日':date===tomorrowStr?'明日':'');
+                const dates=new Set([todayStr,tomorrowStr,dayAfterTomorrowStr,...(meteoData?.daily?.time||[]),...(jmaData?.[1]?.timeSeries?.[0]?.timeDefines||[]).map(t=>t.slice(0,10))]);
+                for(const date of dates) dailySummaries[date]=parseDayData(date,0,date===todayStr?'今日':date===tomorrowStr?'明日':date===dayAfterTomorrowStr?'明後日':'');
                 const todayData = dailySummaries[todayStr];
                 const tomorrowData = dailySummaries[tomorrowStr];
+                const dayAfterTomorrowData = dailySummaries[dayAfterTomorrowStr];
 
                 if(generation!==requestGeneration || signal.aborted) return;
                 cachedForecastData = {
                     today: todayData,
-                    tomorrow: tomorrowData
+                    tomorrow: tomorrowData,
+                    dayAfterTomorrow: dayAfterTomorrowData
                 };
                 lastFetchedTimestamp = Date.now();
 
@@ -1601,7 +1612,7 @@
             }
 
             // ③ 推奨服装（手持ち服リスト・判定基準に完全合致・余計な注釈テキストを排除）
-            const outfit = evaluateClothingByCriteria(data.apparentTemp);
+            const outfit = evaluateClothingByCriteria(data.apparentTemp, data.maxWindSpeed);
 
             document.getElementById('criteriaBadge').innerText = outfit.label;
             document.getElementById('outfitSection').innerHTML = `

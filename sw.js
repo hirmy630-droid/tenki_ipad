@@ -1,5 +1,5 @@
 'use strict';
-const VERSION = '20261013-230549-ipad-web-radar';
+const VERSION = '20261023-ipad-3days-clothing';
 const BASE = self.registration.scope;
 const PREFIX = 'weather-pwa-' + encodeURIComponent(BASE) + '-';
 const CACHE_NAME = PREFIX + VERSION;
