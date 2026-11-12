@@ -1,6 +1,6 @@
 {
-  "background_color": "#f2f2f7",
-  "description": "ウェザーニュースの予報をもとに、明日の服装と傘の目安を表示します",
+  "background_color": "#e8eaef",
+  "description": "ウェザーニュースの予報をもとに、今日・明日・明後日の服装と傘の目安を表示します",
   "display": "standalone",
   "icons": [
     {
@@ -26,5 +26,5 @@
   "scope": "./",
   "short_name": "天気予報",
   "start_url": "./index.html",
-  "theme_color": "#f2f2f7"
+  "theme_color": "#e8eaef"
 }
