@@ -13,24 +13,26 @@
 <meta name="apple-mobile-web-app-title" content="天気予報">
 <style>
   html { -webkit-text-size-adjust: 100%; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; background: #f2f2f7; color: #1c1c1e; font-size: 16px; }
+  html { color-scheme: light; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif; background: #e8eaef; color: #1c1c1e; font-size: 16px; }
   .wrap { max-width: 1240px; margin: 0 auto; padding: 14px 18px 28px; box-sizing: border-box; }
 
   /* ヘッダー */
   header { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
   .h-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: .02em; }
-  h1 .h-sub { font-size: 14px; font-weight: 700; color: #6b7280; background: #e9e9ee; border-radius: 6px; padding: 3px 8px; vertical-align: 3px; }
-  .btn-loc { width: auto; max-width: 360px; height: 42px; min-height: 42px; padding: 0 18px; background: #fff; border: 1px solid #d1d1d6; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  h1 .h-sub { font-size: 14px; font-weight: 700; color: #4b5563; background: #dde1e8; border-radius: 6px; padding: 3px 8px; vertical-align: 3px; }
+  .btn-loc { width: auto; max-width: 360px; height: 42px; min-height: 42px; padding: 0 18px; background: #fff; border: 1px solid #bfc5cf; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .btn-loc:active { transform: scale(0.98); }
   .btn-loc .chev { color: #8e8e93; font-size: 14px; flex: 0 0 auto; }
   #locBtnLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-right { display: flex; align-items: center; gap: 10px; }
-  .tabs { display: flex; background: #e9e9ee; border-radius: 12px; padding: 3px; gap: 3px; }
-  .tabs button { border: none; background: transparent; font-size: 16px; font-weight: 700; color: #3a3a3c; padding: 8px 18px; border-radius: 9px; cursor: pointer; }
+  .tabs { display: flex; background: #dde1e8; border-radius: 12px; padding: 3px; gap: 3px; }
+  .tabs button { border: none; background: transparent; font-size: 16px; font-weight: 700; color: #2c2c2e; padding: 8px 18px; border-radius: 9px; cursor: pointer; }
   .tabs button.on { background: #ff9500; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
-  .btn-refresh { border: 1px solid #d1d1d6; background: #fff; font-size: 15px; font-weight: 700; border-radius: 10px; padding: 9px 14px; cursor: pointer; }
+  .btn-refresh { border: 1px solid #bfc5cf; background: #fff; font-size: 15px; font-weight: 700; border-radius: 10px; padding: 9px 14px; cursor: pointer; }
   .status-line { font-size: 14px; color: #6b7280; text-align: right; min-height: 18px; margin: 4px 2px 8px; }
+  header .status-line { margin: 0; min-height: 0; align-self: center; white-space: nowrap; text-align: left; }
   .status-line.err { color: #ff3b30; }
 
   /* 2カラム配置（横向き想定。幅が狭い場合は落とす） */
@@ -39,32 +41,32 @@
   @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
   .col-left, .col-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
 
-  .card { background: #fff; border: 1px solid #e3e3e8; border-radius: 14px; padding: 18px; box-shadow: 0 1px 4px rgba(0,0,0,.05); }
+  .card { background: #fff; border: 1px solid #d2d5dd; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(15,23,42,.09); }
   .card h2 { margin: 0; }
 
   /* 左：メイン予報（データ配置はiPhone版に合わせる） */
-  .now-strip { background: linear-gradient(135deg, #007aff, #38b6ff); color: #fff; border-radius: 12px; padding: 10px 16px; margin-bottom: 12px; }
+  .now-strip { background: linear-gradient(135deg, #007aff, #38b6ff); color: #fff; border-radius: 12px; padding: 10px 16px; margin-bottom: 15px; }
   .nw-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
   .nw-row + .nw-row { margin-top: 2px; gap: 22px; }
-  .nw-k { font-size: 15px; font-weight: 700; opacity: .92; }
+  .nw-k { font-size: 17px; font-weight: 700; opacity: .92; }
   .nw-e { font-size: 26px; line-height: 1; }
-  .nw-v { font-size: 16px; font-weight: 700; }
-  .nw-row:first-child .nw-v { font-size: 20px; font-weight: 800; }
-  .day-title { font-size: 17px; font-weight: 700; color: #4b5563; text-align: center; line-height: 24px; margin-bottom: 4px; }
+  .nw-v { font-size: 18px; font-weight: 700; }
+  .nw-row:first-child .nw-v { font-size: 22px; font-weight: 800; }
+  .day-title { font-size: 17px; font-weight: 700; color: #374151; text-align: center; line-height: 24px; margin-bottom: 4px; }
   .wx-emoji { font-size: 46px; text-align: center; line-height: 1.15; }
   .wx-text { font-size: 25px; font-weight: 800; text-align: center; margin: 2px 0 4px; }
   .wx-temps { text-align: center; font-size: 17px; margin-bottom: 6px; }
   .wx-temps b { font-size: 27px; font-weight: 800; }
   .hi { color: #e03131; } .lo { color: #1971c2; }
-  .feels-strip { display: flex; align-items: center; justify-content: space-between; background: #fff7e6; border-radius: 12px; padding: 9px 12px; margin: 8px 0 10px; }
+  .feels-strip { display: flex; align-items: center; justify-content: space-between; background: #fff7e6; border-radius: 12px; padding: 9px 12px; margin: 11px 0 10px; }
   .feels-strip .fk { font-size: 16px; font-weight: 700; color: #92400e; }
   .feels-strip .fv { font-size: 19px; font-weight: 800; color: #ff6a3a; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .cell { background: #f7f7f9; border: 1px solid #ececf0; border-radius: 10px; padding: 8px 4px; text-align: center; }
-  .cell .k { font-size: 14.5px; color: #6b7280; line-height: 1.2; }
+  .cell { background: #eef0f4; border: 1px solid #d9dde5; border-radius: 10px; padding: 8px 4px; text-align: center; }
+  .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
   #precCell, #windCell { cursor: pointer; }
-  .btn-radar { width: 100%; margin-top: 12px; border: 1px solid #d1d1d6; background: #fff; font-size: 15.5px; font-weight: 700; border-radius: 10px; padding: 10px; cursor: pointer; }
+  .btn-radar { width: auto; height: 42px; padding: 0 18px; border: 1px solid #bfc5cf; background: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; cursor: pointer; white-space: nowrap; }
 
   /* 左：服装（データ配置はiPhone版に合わせる） */
   .card.outfit { background: #fffaf0; border-color: #f0dcb2; }
@@ -92,8 +94,9 @@
   .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
   .hourly-scroll { max-height: 566px; overflow-y: auto; }
   table.htable { width: 100%; border-collapse: collapse; }
-  table.htable th { position: sticky; top: 0; background: #f7f7f9; font-size: 15px; color: #6b7280; font-weight: 700; padding: 8px 6px; text-align: center; z-index: 1; }
+  table.htable th { position: sticky; top: 0; background: #eef0f4; font-size: 15px; color: #4b5563; font-weight: 700; padding: 8px 6px; text-align: center; z-index: 1; }
   table.htable td { font-size: 17px; padding: 9px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
+  table.htable td.wxe { font-size: 22px; }
   table.htable td.tm { font-weight: 800; font-size: 16px; white-space: nowrap; }
   table.htable td.fl { color: #ff9500; font-weight: 800; }
   table.htable td.rn { color: #007aff; font-weight: 800; }
@@ -115,8 +118,10 @@
 
   /* ポップアップ内の表（降水・風の詳細。iPhone版と同じ） */
   table.mini { width: 100%; border-collapse: collapse; }
-  table.mini th { font-size: 15px; color: #6b7280; font-weight: 700; padding: 7px 6px; border-bottom: 2px solid #ececf0; text-align: center; }
+  table.mini th { font-size: 15px; color: #4b5563; font-weight: 700; padding: 7px 6px; border-bottom: 2px solid #dfe3ea; text-align: center; }
   table.mini td { font-size: 16px; padding: 8px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
+  #rainModal table.mini th, #windModal table.mini th { font-size: 17px; }
+  #rainModal table.mini td, #windModal table.mini td { font-size: 18px; }
   table.mini td.rn { color: #007aff; font-weight: 700; }
 
   /* モーダル（地点管理・レーダー・降水/風の詳細） */
@@ -150,24 +155,27 @@
     body { overflow: hidden; }
     .wrap { height: 100vh; height: 100dvh; max-width: none; display: flex; flex-direction: column; padding: 10px 16px 12px; }
     .status-line { margin: 2px 2px 6px; min-height: 16px; }
-    .layout { flex: 1; min-height: 0; grid-template-columns: 408px 1fr; gap: 12px; align-items: stretch; }
-    .col-left, .col-right { gap: 12px; min-height: 0; }
-    .col-left { overflow-y: auto; }
+    .layout { flex: 1; min-height: 0; grid-template-columns: 408px 1fr; gap: 10px; align-items: stretch; }
+    .col-left, .col-right { gap: 10px; min-height: 0; }
+    .col-left { overflow: hidden; }
     .col-right .card { display: flex; flex-direction: column; }
-    .col-right .card:first-child { flex: 1; min-height: 0; }
+    .col-right .hourly-card { flex: 1; min-height: 0; }
     .hourly-scroll { flex: 1; min-height: 0; max-height: none; }
-    .card { padding: 15px 16px; }
-    .now-strip { padding: 8px 14px; margin-bottom: 10px; }
-    .wx-emoji { font-size: 40px; }
-    .wx-text { font-size: 23px; }
-    .wx-temps { margin-bottom: 4px; }
-    .wx-temps b { font-size: 24px; }
-    .feels-strip { padding: 7px 12px; margin: 6px 0 8px; }
-    .cell { padding: 6px 4px; }
-    .btn-radar { margin-top: 10px; padding: 8px; }
+    .card { padding: 12px 14px; }
+    .now-strip { padding: 6px 12px; margin-bottom: 11px; }
+    .wx-emoji { font-size: 36px; }
+    .wx-text { font-size: 22px; }
+    .wx-temps { margin-bottom: 2px; }
+    .wx-temps b { font-size: 23px; }
+    .feels-strip { padding: 6px 12px; margin: 7px 0 6px; }
+    .cell { padding: 5px 4px; }
+    .btn-radar { padding: 0 14px; }
     .of-v { font-size: 18px; }
     .band3 { margin-top: 10px; }
-    .b3 { padding: 7px 4px; }
+    .b3 { padding: 6px 4px; }
+    .of-title { margin-bottom: 8px; }
+    .of-box { padding: 8px 10px; }
+    .advice { padding: 8px 10px; }
     .b3-v { font-size: 19px; }
     .advice { margin-top: 9px; }
     table.htable td { padding: 7px 6px; }
@@ -180,6 +188,9 @@
     <div class="h-left">
       <h1>☀️ 天気予報 <span class="h-sub">KYOWA ROOF</span></h1>
       <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
+      <button type="button" class="btn-radar" id="radarBtn">🌧️ レーダー</button>
+      <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
+      <p class="status-line" id="fetchStatus"></p>
     </div>
     <div class="h-right">
       <div class="tabs">
@@ -187,10 +198,8 @@
         <button type="button" id="tabTomorrow">明日</button>
         <button type="button" id="tabDayAfter">明後日</button>
       </div>
-      <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
     </div>
   </header>
-  <p class="status-line" id="fetchStatus"></p>
 
   <main class="layout">
     <div class="col-left">
@@ -221,7 +230,6 @@
           <div class="cell" id="precCell"><div class="k">降水量</div><div class="v" id="wxPrec">--ミリ</div></div>
           <div class="cell" id="windCell"><div class="k">風速</div><div class="v" id="wxWind">-- m/s</div></div>
         </div>
-        <button type="button" class="btn-radar" id="radarBtn">レーダー</button>
       </section>
 
       <!-- 服装 -->
@@ -239,22 +247,22 @@
         <div class="advice ok" id="umbrellaAdvice">傘の目安を計算中…</div>
       </section>
 
+    </div>
+
+    <div class="col-right">
       <!-- つぎの雨予報 -->
       <section class="card">
         <h2 class="nr-title">🌧️ つぎの雨予報</h2>
         <div class="nextrain" id="nextRain"><p class="note">予報を取得すると表示します。</p></div>
       </section>
 
-    </div>
-
-    <div class="col-right">
       <!-- 1時間毎の予報 -->
-      <section class="card">
+      <section class="card hourly-card">
         <h2 class="panel-title">🕐 1時間毎の予報</h2>
         <div class="hourly-scroll" id="hourlyScroll">
           <table class="htable">
-            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風速</th><th>降水</th></tr></thead>
-            <tbody id="hourlyBody"><tr><td colspan="6" class="note">読み込み中…</td></tr></tbody>
+            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>降水</th><th>雨量</th><th>風速</th><th>風向</th></tr></thead>
+            <tbody id="hourlyBody"><tr><td colspan="8" class="note">読み込み中…</td></tr></tbody>
           </table>
         </div>
       </section>
@@ -1038,18 +1046,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const nr = findNextRain(lastData.hourly || [], lastData.week || [], now);
     if (nr.type === 'hourly') {
       const label = dayLabel(nr.startDt, now);
-      let txt = `<span class="big">☂️ 次の雨は ${label} ${nr.startDt.getHours()}時ごろから</span>`;
+      let txt = `☂️ 次の雨は ${label} ${nr.startDt.getHours()}時ごろから`;
       if (nr.endDt && nr.endDt > nr.startDt) {
         const endLabel = dayLabel(nr.endDt, now);
-        txt += `<br>${endLabel === label ? '' : endLabel + ' '}${nr.endDt.getHours() + 1}時ごろまで降る見込みです。`;
+        txt += `${endLabel === label ? '' : ' ' + endLabel} ${nr.endDt.getHours() + 1}時ごろまで`;
       }
-      if (nr.maxMm > 0) txt += `<br>強さの目安：1時間に最大 約${nr.maxMm}ミリ`;
+      if (nr.maxMm > 0) txt += `（最大 約${nr.maxMm}ミリ）`;
       el.innerHTML = txt;
     } else if (nr.type === 'week') {
       const label = dayLabel(nr.date, now);
-      el.innerHTML = `<span class="big">☂️ しばらく雨はなさそうです</span><br>次の雨は ${label} ごろの見込みです${nr.pop != null ? `（降水確率 ${nr.pop}%）` : ''}。`;
+      el.innerHTML = `☂️ しばらく雨はなさそうです（次の雨は ${label} ごろの見込み${nr.pop != null ? `・降水確率 ${nr.pop}%` : ''}）`;
     } else {
-      el.innerHTML = `<span class="big">☀️ 雨の予報はありません</span><br>週間予報の範囲では、雨の日はなさそうです。`;
+      el.innerHTML = `☀️ 雨の予報はありません（週間予報の範囲で雨の日はなさそうです）`;
     }
   }
 
@@ -1057,10 +1065,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   function renderHourlyPanel() {
     const e = dayEntry(DAY_OFFSET[currentDay] ?? 0);
     const body = $('hourlyBody');
-    if (!e || !lastData) { body.innerHTML = '<tr><td colspan="6" class="note">1時間予報を取得できませんでした。</td></tr>'; return; }
+    if (!e || !lastData) { body.innerHTML = '<tr><td colspan="8" class="note">1時間予報を取得できませんでした。</td></tr>'; return; }
     const dayDate = dateOfEntry(e);
     const rows = (lastData.hourly || []).filter(r => sameDay(r.date, dayDate));
-    if (!rows.length) { body.innerHTML = '<tr><td colspan="6" class="note">1時間予報を取得できませんでした。</td></tr>'; return; }
+    if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="note">1時間予報を取得できませんでした。</td></tr>'; return; }
     const popMap = lastData.popMap || {};
     const sun = sunRange(e.mrf);
     const nowHour = currentDay === 'today' ? jstNow().getUTCHours() : -1;
@@ -1069,7 +1077,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const fl = r.temp != null ? feelsLike(r.temp, r.windSpd, r.wx, r.time, sun) : null;
       const pop = popMap[omKey(r.date, r.time)];
       const cls = r.time === nowHour ? ' class="nowrow"' : (nowHour >= 0 && r.time < nowHour ? ' class="past"' : '');
-      html += `<tr${cls}><td class="tm">${r.time}時</td><td>${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td></tr>`;
+      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="rn">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${windDirLabel(r.windDir) ?? '―'}</td></tr>`;
     });
     body.innerHTML = html;
     // 今日表示のときは現在時刻の行まで自動スクロール
@@ -1258,6 +1266,34 @@ if ('serviceWorker' in navigator) {
       .catch(() => {});
   });
 }
+</script>
+<script>
+/* スワイプで今日/明日/明後日を切り替え（左スワイプ→次の日、右スワイプ→前の日） */
+(function () {
+  var card = document.getElementById('wxCard');
+  if (!card) return;
+  var sx = null, sy = null;
+  card.addEventListener('touchstart', function (e) {
+    var t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY;
+  }, { passive: true });
+  card.addEventListener('touchend', function (e) {
+    if (sx === null) return;
+    var t = e.changedTouches[0];
+    var dx = t.clientX - sx, dy = t.clientY - sy;
+    sx = null;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+    if (typeof window.__wnSetDay !== 'function') return;
+    var tabs = document.querySelectorAll('.tabs button');
+    var cur = 'today';
+    for (var i = 0; i < tabs.length; i++) if (tabs[i].classList.contains('on')) cur = tabs[i].id.replace('tab', '').toLowerCase();
+    var order = ['today', 'tomorrow', 'dayafter'];
+    var idx = order.indexOf(cur); if (idx < 0) idx = 0;
+    var next = dx < 0 ? idx + 1 : idx - 1;
+    if (next < 0) next = 0;
+    if (next > 2) next = 2;
+    if (next !== idx) window.__wnSetDay(order[next]);
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
