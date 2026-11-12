@@ -1,55 +1,64 @@
-'use strict';
-const VERSION = '20261023-ipad-3days-clothing';
-const BASE = self.registration.scope;
-const PREFIX = 'weather-pwa-' + encodeURIComponent(BASE) + '-';
-const CACHE_NAME = PREFIX + VERSION;
-const INDEX = new URL('index.html', BASE).href;
-const MANIFEST = new URL('manifest.json', BASE).href;
-function isAppDocument(url) {
-  return url.origin === new URL(BASE).origin &&
-    (url.pathname === new URL(BASE).pathname || url.pathname === new URL(INDEX).pathname);
-}
-self.addEventListener('install', event => {
+/* 明日の服装予報（ウェザーニュース版） Service Worker
+   - アプリ本体（index.html / manifest.json）はキャッシュしてオフラインでも開けるようにする
+   - 天気データ（ウェザーニュース・国土地理院・OpenStreetMap等、他ドメイン）は
+     Service Workerでは扱わず、常にネットワークから取得する（アプリ側にキャッシュ機能あり）
+   - 更新時は新しいService Workerへ即時切り替えし、古いキャッシュを削除する
+*/
+const CACHE_NAME = 'wn-ipad-pwa-v20261112-4';
+const CORE_FILES = ['./', './index.html', './manifest.json'];
+const ICON_FILES = ['./icon-180.png', './icon-192.png', './icon-512.png'];
+
+self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    const response = await fetch(INDEX, { cache: 'no-store' });
-    if (!response.ok) throw new Error('index.html download failed');
     const cache = await caches.open(CACHE_NAME);
-    await cache.put(INDEX, response);
+    await cache.addAll(CORE_FILES);
+    // アイコンは1つ失敗してもインストール全体を止めない
+    await Promise.allSettled(ICON_FILES.map((url) => cache.add(url)));
     await self.skipWaiting();
   })());
 });
-self.addEventListener('activate', event => {
+
+self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys();
-    await Promise.all(keys.filter(key => key.startsWith(PREFIX) && key !== CACHE_NAME).map(key => caches.delete(key)));
-    const clients = await self.clients.matchAll({ type: 'window' });
+    await Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)));
     await self.clients.claim();
-    await Promise.all(clients.filter(client => isAppDocument(new URL(client.url))).map(async client => {
-      client.postMessage({ type: 'WEATHER_APP_UPDATED', version: VERSION });
-    }));
   })());
 });
-self.addEventListener('fetch', event => {
-  const request = event.request;
-  if (request.method !== 'GET') return;
-  const url = new URL(request.url);
-  if (request.mode === 'navigate' && isAppDocument(url)) {
+
+self.addEventListener('fetch', (event) => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  // 他ドメイン（天気データ等）はそのままネットワークへ
+  if (url.origin !== self.location.origin) return;
+
+  if (req.mode === 'navigate') {
+    // 画面遷移はネットワーク優先（常に最新版を取得し、失敗時のみキャッシュ）
     event.respondWith((async () => {
       try {
-        const response = await fetch(request, { cache: 'no-store' });
-        if (!response.ok) return response;
+        const fresh = await fetch(req);
         const cache = await caches.open(CACHE_NAME);
-        await cache.put(INDEX, response.clone());
-        return response;
-      } catch (_) {
+        cache.put('./index.html', fresh.clone());
+        return fresh;
+      } catch (e) {
         const cache = await caches.open(CACHE_NAME);
-        return await cache.match(INDEX) || new Response('通信できません。接続を確認して再度開いてください。', {
-          status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-        });
+        const cached = await cache.match('./index.html');
+        if (cached) return cached;
+        throw e;
       }
     })());
-  } else if (url.href === MANIFEST) {
-    event.respondWith(fetch(request, { cache: 'no-store' }));
+    return;
   }
-  // Weather APIs and other pages bypass this cache.
+
+  // 同一ドメインの静的ファイルは stale-while-revalidate
+  event.respondWith((async () => {
+    const cache = await caches.open(CACHE_NAME);
+    const cached = await cache.match(req, { ignoreSearch: true });
+    const network = fetch(req).then((res) => {
+      if (res && res.ok) cache.put(req, res.clone());
+      return res;
+    }).catch(() => null);
+    return cached || (await network) || new Response('offline', { status: 504, statusText: 'Offline' });
+  })());
 });
