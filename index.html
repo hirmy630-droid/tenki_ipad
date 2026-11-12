@@ -73,14 +73,14 @@
   .of-title { font-size: 19px; font-weight: 800; color: #b3540a; margin-bottom: 12px; }
   .of-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .of-box { background: #fff; border: 1px solid #f0e2c4; border-radius: 10px; padding: 10px 12px; }
-  .of-k { font-size: 14.5px; font-weight: 700; color: #b3540a; margin-bottom: 4px; }
+  .of-k { font-size: 15.5px; font-weight: 700; color: #b3540a; margin-bottom: 4px; }
   .of-v { font-size: 19px; font-weight: 800; line-height: 1.35; }
   .band3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .b3 { background: #fff; border: 1px solid #eee5cd; border-radius: 10px; padding: 9px 4px; text-align: center; }
-  .b3-k { font-size: 14px; color: #6b7280; }
+  .b3-k { font-size: 15px; color: #6b7280; }
   .b3-v { font-size: 21px; font-weight: 800; margin-top: 2px; }
   .b3-v.c14 { color: #e8590c; } .b3-v.c20 { color: #1971c2; }
-  .advice { border-radius: 12px; padding: 9px 12px; font-size: 15px; line-height: 1.5; margin-top: 12px; }
+  .advice { border-radius: 12px; padding: 9px 12px; font-size: 17px; line-height: 1.5; margin-top: 12px; }
   .advice.rain { background: #eaf3ff; }
   .advice.ok { background: #eefbf0; }
   .advice.warn { background: #fff7e6; }
@@ -162,12 +162,13 @@
     .col-right .hourly-card { flex: 1; min-height: 0; }
     .hourly-scroll { flex: 1; min-height: 0; max-height: none; }
     .card { padding: 12px 14px; }
-    .now-strip { padding: 6px 12px; margin-bottom: 11px; }
+    .now-strip { padding: 6px 12px; margin-bottom: 14px; }
+    .day-title { line-height: 27px; margin-bottom: 6px; }
     .wx-emoji { font-size: 36px; }
-    .wx-text { font-size: 22px; }
+    .wx-text { font-size: 22px; margin: 4px 0 6px; }
     .wx-temps { margin-bottom: 2px; }
     .wx-temps b { font-size: 23px; }
-    .feels-strip { padding: 6px 12px; margin: 7px 0 6px; }
+    .feels-strip { padding: 6px 12px; margin: 10px 0 6px; }
     .cell { padding: 5px 4px; }
     .btn-radar { padding: 0 14px; }
     .of-v { font-size: 18px; }
@@ -176,6 +177,9 @@
     .of-title { margin-bottom: 8px; }
     .of-box { padding: 8px 10px; }
     .advice { padding: 8px 10px; }
+    .col-left .card.outfit { flex: 1; display: flex; flex-direction: column; }
+    .col-left .band3 { margin-bottom: 8px; }
+    .col-left .advice { margin-top: auto; }
     .b3-v { font-size: 19px; }
     .advice { margin-top: 9px; }
     table.htable td { padding: 7px 6px; }
