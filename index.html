@@ -739,7 +739,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
   function renderLocBtn() {
     const loc = selectedLoc();
-    $('locBtnLabel').textContent = loc ? (lastData && lastData.placeName ? lastData.placeName : (loc.name || loc.addr)) : '場所を登録してください';
+    // 登録名があれば名前を優先表示（無ければウェザーニュースの地点名、それも無ければ住所）
+    $('locBtnLabel').textContent = loc ? (loc.name || (lastData && lastData.placeName) || loc.addr) : '場所を登録してください';
   }
 
   async function geocode(addr) {
