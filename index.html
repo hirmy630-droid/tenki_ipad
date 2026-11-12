@@ -21,9 +21,10 @@
   .h-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: .02em; }
   h1 .h-sub { font-size: 14px; font-weight: 700; color: #6b7280; background: #e9e9ee; border-radius: 6px; padding: 3px 8px; vertical-align: 3px; }
-  .btn-loc { width: 100%; height: 42px; min-height: 42px; background: #fff; border: 1px solid #d1d1d6; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-loc { width: auto; max-width: 360px; height: 42px; min-height: 42px; padding: 0 18px; background: #fff; border: 1px solid #d1d1d6; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
   .btn-loc:active { transform: scale(0.98); }
-  .btn-loc .chev { color: #8e8e93; font-size: 14px; }
+  .btn-loc .chev { color: #8e8e93; font-size: 14px; flex: 0 0 auto; }
+  #locBtnLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-right { display: flex; align-items: center; gap: 10px; }
   .tabs { display: flex; background: #e9e9ee; border-radius: 12px; padding: 3px; gap: 3px; }
   .tabs button { border: none; background: transparent; font-size: 16px; font-weight: 700; color: #3a3a3c; padding: 8px 18px; border-radius: 9px; cursor: pointer; }
@@ -178,6 +179,7 @@
   <header>
     <div class="h-left">
       <h1>☀️ 天気予報 <span class="h-sub">KYOWA ROOF</span></h1>
+      <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
     </div>
     <div class="h-right">
       <div class="tabs">
@@ -192,9 +194,6 @@
 
   <main class="layout">
     <div class="col-left">
-      <!-- 登録場所ボタン（iPhone版と同じ） -->
-      <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
-
       <!-- メイン予報 -->
       <section class="card" id="wxCard">
         <div class="now-strip">

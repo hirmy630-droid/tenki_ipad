@@ -4,7 +4,7 @@
      Service Workerでは扱わず、常にネットワークから取得する（アプリ側にキャッシュ機能あり）
    - 更新時は新しいService Workerへ即時切り替えし、古いキャッシュを削除する
 */
-const CACHE_NAME = 'wn-ipad-pwa-v20261112-4';
+const CACHE_NAME = 'wn-ipad-pwa-v20261112-5';
 const CORE_FILES = ['./', './index.html', './manifest.json'];
 const ICON_FILES = ['./icon-180.png', './icon-192.png', './icon-512.png'];
 
