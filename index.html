@@ -40,6 +40,7 @@
   @media (max-width: 1099px) { .layout { grid-template-columns: 340px 1fr; } }
   @media (max-width: 700px) { .layout { grid-template-columns: 1fr; } }
   .col-left, .col-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .col-left { touch-action: pan-y; }
 
   .card { background: #fff; border: 1px solid #d2d5dd; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(15,23,42,.09); }
   .card h2 { margin: 0; }
@@ -65,7 +66,6 @@
   .cell { background: #eef0f4; border: 1px solid #d9dde5; border-radius: 10px; padding: 8px 4px; text-align: center; }
   .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
-  #precCell, #windCell { cursor: pointer; }
   .btn-radar { width: auto; height: 42px; padding: 0 18px; border: 1px solid #bfc5cf; background: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; cursor: pointer; white-space: nowrap; }
 
   /* 左：服装（データ配置はiPhone版に合わせる） */
@@ -120,8 +120,6 @@
   table.mini { width: 100%; border-collapse: collapse; }
   table.mini th { font-size: 15px; color: #4b5563; font-weight: 700; padding: 7px 6px; border-bottom: 2px solid #dfe3ea; text-align: center; }
   table.mini td { font-size: 16px; padding: 8px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
-  #rainModal table.mini th, #windModal table.mini th { font-size: 17px; }
-  #rainModal table.mini td, #windModal table.mini td { font-size: 18px; }
   table.mini td.rn { color: #007aff; font-weight: 700; }
 
   /* モーダル（地点管理・レーダー・降水/風の詳細） */
@@ -355,22 +353,6 @@
   <div class="sheet wide">
     <div class="sheet-head"><h3>🌧️ 雨雲レーダー</h3><button type="button" class="sheet-close" data-close="radarModal">✕</button></div>
     <iframe id="radarFrame" title="雨雲レーダー" loading="lazy"></iframe>
-  </div>
-</div>
-
-<!-- ポップアップ：降水の詳細 -->
-<div class="overlay hidden" id="rainModal">
-  <div class="sheet">
-    <div class="sheet-head"><h3 id="rainTitle">💧 降水の詳細</h3><button type="button" class="sheet-close" data-close="rainModal">✕</button></div>
-    <div id="rainBody"><p class="note">読み込み中…</p></div>
-  </div>
-</div>
-
-<!-- ポップアップ：風の詳細 -->
-<div class="overlay hidden" id="windModal">
-  <div class="sheet">
-    <div class="sheet-head"><h3 id="windTitle">🍃 風の詳細</h3><button type="button" class="sheet-close" data-close="windModal">✕</button></div>
-    <div id="windBody"><p class="note">読み込み中…</p></div>
   </div>
 </div>
 
@@ -1193,60 +1175,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     openModal('radarModal');
   }
 
-  // 降水の詳細ポップアップ（降水量セルをタップ）：1日の合計・午前午後の降水確率＋時間ごとの降水量と降水確率
-  function openRainDetail() {
-    const e = dayEntry(DAY_OFFSET[currentDay] ?? 0);
-    if (!e || !lastData) return;
-    const dayDate = dateOfEntry(e);
-    const rows = (lastData.hourly || []).filter(r => sameDay(r.date, dayDate));
-    const d = dateFromMrfTm(e.mrf.tm);
-    $('rainTitle').textContent = `💧 降水の詳細（${d.mo}月${d.d}日（${d.dow}）・${DAY_LABEL[currentDay]}）`;
-    if (!rows.length) {
-      $('rainBody').innerHTML = '<p class="note">降水の詳細を取得できませんでした。</p>';
-      openModal('rainModal');
-      return;
-    }
-    const m = e.mrf, card = e.card;
-    const popAm = card && card.popAm != null ? card.popAm : m.POP;
-    const popPm = card && card.popPm != null ? card.popPm : m.POP;
-    let html = `<p class="note">1日の降水量：${m.PREC}ミリ　降水確率：午前 ${popAm != null ? popAm + '%' : '--'}／午後 ${popPm != null ? popPm + '%' : '--'}</p>`;
-    html += '<table class="mini"><tr><th>時</th><th>降水量</th><th>降水確率</th></tr>';
-    const popMap = lastData.popMap || {};
-    rows.forEach(r => {
-      const pop = popMap[omKey(r.date, r.time)];
-      html += `<tr><td>${r.time}時</td><td class="rn">${r.rainMm != null ? r.rainMm : 0}</td><td>${pop != null ? `${pop}%` : '―'}</td></tr>`;
-    });
-    html += '</table>';
-    $('rainBody').innerHTML = html;
-    openModal('rainModal');
-  }
-
-  // 風の詳細ポップアップ（風速セルをタップ）：1日の最大風速＋時間ごとの風速と風向き
-  function openWindDetail() {
-    const e = dayEntry(DAY_OFFSET[currentDay] ?? 0);
-    if (!e || !lastData) return;
-    const dayDate = dateOfEntry(e);
-    const rows = (lastData.hourly || []).filter(r => sameDay(r.date, dayDate));
-    const d = dateFromMrfTm(e.mrf.tm);
-    $('windTitle').textContent = `🍃 風の詳細（${d.mo}月${d.d}日（${d.dow}）・${DAY_LABEL[currentDay]}）`;
-    if (!rows.length) {
-      $('windBody').innerHTML = '<p class="note">風の詳細を取得できませんでした。</p>';
-      openModal('windModal');
-      return;
-    }
-    const wMax = dayWindMax(lastData.hourly, dayDate);
-    let html = `<p class="note">1日の最大風速：${wMax != null ? wMax + ' m/s' : '--'}</p>`;
-    html += '<table class="mini"><tr><th>時</th><th>風速</th><th>風向き</th></tr>';
-    rows.forEach(r => {
-      const dir = windDirLabel(r.windDir);
-      html += `<tr><td>${r.time}時</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dir != null ? dir : '―'}</td></tr>`;
-    });
-    html += '</table>';
-    $('windBody').innerHTML = html;
-    openModal('windModal');
-  }
-
-
   function setDay(day) {
     currentDay = day;
     $('tabToday').className = day === 'today' ? 'on' : '';
@@ -1268,8 +1196,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
     $('locOpenBtn').addEventListener('click', () => openModal('locModal'));
     $('radarBtn').addEventListener('click', openRadar);
-    $('precCell').addEventListener('click', () => openRainDetail());
-    $('windCell').addEventListener('click', () => openWindDetail());
     document.querySelectorAll('[data-close]').forEach(btn => {
       btn.addEventListener('click', () => closeModal(btn.getAttribute('data-close')));
     });
@@ -1327,12 +1253,13 @@ if ('serviceWorker' in navigator) {
 <script>
 /* スワイプで今日/明日/明後日を切り替え（左スワイプ→次の日、右スワイプ→前の日） */
 (function () {
-  var card = document.getElementById('wxCard');
+  var card = document.querySelector('.col-left') || document.getElementById('wxCard');
   if (!card) return;
   var sx = null, sy = null;
   card.addEventListener('touchstart', function (e) {
     var t = e.changedTouches[0]; sx = t.clientX; sy = t.clientY;
   }, { passive: true });
+  card.addEventListener('touchcancel', function () { sx = null; }, { passive: true });
   card.addEventListener('touchend', function (e) {
     if (sx === null) return;
     var t = e.changedTouches[0];
