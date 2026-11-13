@@ -943,10 +943,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (useCacheFirst && cached) { lastData = cached; render(); }
     setStatus('予報を取得中…');
     try {
+      // Open-Meteoは1時間単位でしか変わらないため、前回取得から1時間以内なら取り直さず前回分を使う
+      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && Date.now() - cached.omFetchedAt < 3600000);
       const [mrfRes, pageRes, omRes] = await Promise.all([
         fetchT(WN_MRF_URL(loc.lat, loc.lon), 20000).then(r => { if (!r.ok) throw new Error('mrf'); return r.json(); }),
         fetchT(WN_PAGE_URL(loc.lat, loc.lon), 20000).then(r => { if (!r.ok) throw new Error('page'); return r.text(); }),
-        fetchT(OM_URL(loc.lat, loc.lon), 10000).then(r => { if (!r.ok) throw new Error('om'); return r.json(); }).catch(() => null)
+        omFresh ? Promise.resolve(null) : fetchT(OM_URL(loc.lat, loc.lon), 10000).then(r => { if (!r.ok) throw new Error('om'); return r.json(); }).catch(() => null)
       ]);
       const data = {
         mrf: mrfRes.mrf || [],
@@ -955,10 +957,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         week: parseWeek(pageRes),
         placeName: parsePlaceName(pageRes),
         obs: parseObserved(pageRes),
-        popMap: parseOmPop(omRes),
-        omWind: parseOmWind(omRes),
+        popMap: omFresh ? cached.popMap : parseOmPop(omRes),
+        omWind: omFresh ? cached.omWind : parseOmWind(omRes),
+        omFetchedAt: omFresh ? cached.omFetchedAt : (omRes ? Date.now() : (cached ? cached.omFetchedAt : 0)),
         fetchedAt: Date.now()
       };
+      // 構造変更などで中身が読めていない場合は失敗扱いにし、前回データを壊さない
+      if (!data.mrf.length || data.hourly.length < 48 || data.week.length < 7) throw new Error('parse');
       lastData = data;
       saveCache(loc, data);
       render();
