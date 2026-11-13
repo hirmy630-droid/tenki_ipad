@@ -66,6 +66,7 @@
   .cell { background: #eef0f4; border: 1px solid #d9dde5; border-radius: 10px; padding: 8px 4px; text-align: center; }
   .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
+  .cell .v .wdir { display: inline-block; margin-right: 3px; }
   .btn-radar { width: auto; height: 42px; padding: 0 18px; border: 1px solid #bfc5cf; background: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; cursor: pointer; white-space: nowrap; }
 
   /* 左：服装（データ配置はiPhone版に合わせる） */
@@ -705,6 +706,22 @@ function dayWindMax(hourly, dateObj) {
   return Math.max(...vals);
 }
 
+// その日の最大風速と、その時刻の風向コード（風速セルの矢印表示用）
+function dayWindMaxInfo(hourly, dateObj) {
+  if (!hourly || !hourly.length) return null;
+  const rows = hourly.filter(r => sameDay(r.date, dateObj) && r.windSpd != null);
+  if (!rows.length) return null;
+  let best = rows[0];
+  for (const r of rows) if (r.windSpd > best.windSpd) best = r;
+  return { spd: best.windSpd, dir: best.windDir };
+}
+
+// 風向コード（風が吹いてくる向き・16方位）→ 風が吹いていく向きの角度（↑を時計回りに回す角度）
+function windToDeg(code) {
+  if (!(code >= 1 && code <= 16)) return null;
+  return ((code % 16) * 22.5 + 180) % 360;
+}
+
 // 9時〜16時の風速の平均（m/s、服装判定の補正用）。取れない場合はその日の全時間で代替
 function daytimeWindAvg(hourly, dateObj) {
   if (!hourly || !hourly.length) return null;
@@ -1031,9 +1048,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     // 体感温度（9時〜16時の平均）
     const fAvg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sunRange(m));
     $('feelAvg').textContent = fAvg != null ? `${fAvg}℃` : '--℃';
-    // 風速（1日の最大）
-    const wMax = dayWindMax(lastData.hourly, dayDate);
-    $('wxWind').textContent = wMax != null ? `${wMax} m/s` : '-- m/s';
+    // 風速（1日の最大）＋最大風速の時刻の風向き矢印（吹いていく向き）
+    const wInfo = dayWindMaxInfo(lastData.hourly, dayDate);
+    const wDeg = wInfo ? windToDeg(wInfo.dir) : null;
+    $('wxWind').innerHTML = wInfo != null
+      ? (wDeg != null && wInfo.spd > 0 ? `<span class="wdir" style="transform:rotate(${wDeg}deg)">↑</span>` : '') + `${wInfo.spd} m/s`
+      : '-- m/s';
 
     const popAm = card ? card.popAm : null;
     const popPm = card ? card.popPm : null;
@@ -1229,7 +1249,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, dayWindMax, dateFromMrfTm };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
 }
 </script>
 <script>
