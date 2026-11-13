@@ -613,6 +613,27 @@ function parseWeek(html) {
   return out;
 }
 
+// 実況（観測値）: section#todayDetails から天気コード・気温・湿度・気圧・風速・風アイコンを取得
+function parseObserved(html) {
+  const segM = html.match(/<section id="todayDetails"[\s\S]*?<\/section>/);
+  if (!segM) return null;
+  const seg = segM[0];
+  const wx = seg.match(/wxicon\/(\d+)\.png/);
+  const val = title => {
+    const b = seg.match(new RegExp(`<p class="title">${title}</p>[\\s\\S]*?<p class="value">(-?[\\d.]+)</p>`));
+    return b ? Number(b[1]) : null;
+  };
+  const windB = seg.match(/<p class="title">風<\/p>[\s\S]*?<img src="([^"]+)"/);
+  return {
+    wx: wx ? Number(wx[1]) : null,
+    temp: val('気温'),
+    humidity: val('湿度'),
+    pressure: val('気圧'),
+    windSpd: val('風'),
+    windIcon: windB ? windB[1] : null
+  };
+}
+
 // ページタイトルから地点名（例: 東京都中央区の天気予報(...) → 東京都中央区）
 function parsePlaceName(html) {
   const m = html.match(/<title>([^<]+)の天気予報/);
@@ -933,6 +954,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         hourly: parseHourly(pageRes, new Date()),
         week: parseWeek(pageRes),
         placeName: parsePlaceName(pageRes),
+        obs: parseObserved(pageRes),
         popMap: parseOmPop(omRes),
         omWind: parseOmWind(omRes),
         fetchedAt: Date.now()
@@ -1022,13 +1044,27 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   // 現在の天気（今日の1時間予報から、現在時刻の行を表示）
   function renderNow() {
+    if (!lastData) return;
+    // 降水量は実況に無いため、予報の現在時刻の行から取る
     const e = dayEntry(0);
-    if (!e || !lastData || !lastData.hourly) return;
-    const dayDate = dateOfEntry(e);
-    const hour = jstNow().getUTCHours();
-    const rows = lastData.hourly.filter(r => sameDay(r.date, dayDate));
-    if (!rows.length) return;
-    const row = rows.find(r => r.time === hour) || rows.filter(r => r.time <= hour).pop() || rows[0];
+    let row = null;
+    if (e && lastData.hourly) {
+      const dayDate = dateOfEntry(e);
+      const hour = jstNow().getUTCHours();
+      const rows = lastData.hourly.filter(r => sameDay(r.date, dayDate));
+      row = rows.find(r => r.time === hour) || rows.filter(r => r.time <= hour).pop() || rows[0] || null;
+    }
+    const obs = lastData.obs;
+    if (obs && obs.temp != null) {
+      // 現在の天気は実況（観測値）で表示する
+      $('nowWx').textContent = wxEmoji(obs.wx != null ? obs.wx : (row ? row.wx : null));
+      $('nowTemp').textContent = `${obs.temp}℃`;
+      $('nowRain').textContent = `降水量 ${row && row.rainMm != null ? row.rainMm : 0}ミリ`;
+      const oIcon = obs.windIcon ? `<img class="wicon" src="${obs.windIcon}" alt="" onerror="this.remove()">` : '';
+      $('nowWind').innerHTML = `風速 ${oIcon}${obs.windSpd != null ? obs.windSpd : '--'}m/s`;
+      return;
+    }
+    if (!row) return;
     $('nowWx').textContent = wxEmoji(row.wx);
     $('nowTemp').textContent = row.temp != null ? `${row.temp}℃` : '--℃';
     $('nowRain').textContent = `降水量 ${row.rainMm != null ? row.rainMm : 0}ミリ`;
@@ -1259,7 +1295,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
 }
 </script>
 <script>
