@@ -67,6 +67,7 @@
   .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
   .cell .v .wdir { display: inline-block; margin-right: 3px; }
+  .nw-v .wdir { display: inline-block; margin-right: 2px; }
   .btn-radar { width: auto; height: 42px; padding: 0 18px; border: 1px solid #bfc5cf; background: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; cursor: pointer; white-space: nowrap; }
 
   /* 左：服装（データ配置はiPhone版に合わせる） */
@@ -1027,7 +1028,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('nowWx').textContent = wxEmoji(row.wx);
     $('nowTemp').textContent = row.temp != null ? `${row.temp}℃` : '--℃';
     $('nowRain').textContent = `降水量 ${row.rainMm != null ? row.rainMm : 0}ミリ`;
-    $('nowWind').textContent = `風速 ${row.windSpd != null ? row.windSpd : '--'}m/s`;
+    const nDeg = windToDeg(row.windDir);
+    const nArrow = nDeg != null && row.windSpd > 0 ? `<span class="wdir" style="transform:rotate(${nDeg}deg)">↑</span>` : '';
+    $('nowWind').innerHTML = `風速 ${nArrow}${row.windSpd != null ? row.windSpd : '--'}m/s`;
   }
 
   function render() {
