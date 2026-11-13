@@ -68,6 +68,9 @@
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
   .cell .v .wdir { display: inline-block; margin-right: 3px; }
   .nw-v .wdir { display: inline-block; margin-right: 2px; }
+  .wicon { width: 20px; height: 20px; vertical-align: -5px; margin-right: 2px; }
+  .wicon-t { width: 20px; height: 20px; vertical-align: -5px; }
+  .nw-v .wicon { width: 18px; height: 18px; vertical-align: -4px; margin-right: 3px; background: #fff; border-radius: 50%; padding: 1px; }
   .btn-radar { width: auto; height: 42px; padding: 0 18px; border: 1px solid #bfc5cf; background: #fff; font-size: 16px; font-weight: 700; border-radius: 14px; cursor: pointer; white-space: nowrap; }
 
   /* 左：服装（データ配置はiPhone版に合わせる） */
@@ -556,14 +559,15 @@ function parseHourly(html, nowDate) {
       const wx = u.match(/wxicon\/(\d+)\.png/);
       const rain = u.match(/<li class="rain">\s*<p>([\d.]+|-)<span>ミリ<\/span><\/p>/);
       const temp = u.match(/<li class="temp">\s*<p>(-?[\d.]+)<span>℃<\/span><\/p>/);
-      const wind = u.match(/wind_\d+_(\d+)\.png[\s\S]*?<p>(\d+)<span>m\/s<\/span><\/p>/);
+      const wind = u.match(/wind_(\d+)_(\d+)\.png[\s\S]*?<p>(\d+)<span>m\/s<\/span><\/p>/);
       rows.push({
         time: Number(time[1]),
         wx: wx ? Number(wx[1]) : null,
         rainMm: rain ? numOrNull(rain[1]) : null,
         temp: temp ? numOrNull(temp[1]) : null,
-        windSpd: wind ? Number(wind[2]) : null,
-        windDir: wind ? Number(wind[1]) : null,
+        windSpd: wind ? Number(wind[3]) : null,
+        windDir: wind ? Number(wind[2]) : null,
+        windImg: wind ? `wind_${wind[1]}_${wind[2]}.png` : null,
         past: !!um[1]
       });
     }
@@ -714,7 +718,7 @@ function dayWindMaxInfo(hourly, dateObj) {
   if (!rows.length) return null;
   let best = rows[0];
   for (const r of rows) if (r.windSpd > best.windSpd) best = r;
-  return { spd: best.windSpd, dir: best.windDir };
+  return { spd: best.windSpd, dir: best.windDir, img: best.windImg || null };
 }
 
 // 風向コード（風が吹いてくる向き・16方位）→ 風が吹いていく向きの角度（↑を時計回りに回す角度）
@@ -1030,7 +1034,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('nowRain').textContent = `降水量 ${row.rainMm != null ? row.rainMm : 0}ミリ`;
     const nDeg = windToDeg(row.windDir);
     const nArrow = nDeg != null && row.windSpd > 0 ? `<span class="wdir" style="transform:rotate(${nDeg}deg)">↑</span>` : '';
-    $('nowWind').innerHTML = `風速 ${nArrow}${row.windSpd != null ? row.windSpd : '--'}m/s`;
+    const nIcon = row.windImg && row.windSpd > 0 ? `<img class="wicon" src="https://gvs.weathernews.jp/onebox/img/wind/png/${row.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : '';
+    $('nowWind').innerHTML = `風速 ${nArrow}${nIcon}${row.windSpd != null ? row.windSpd : '--'}m/s`;
   }
 
   function render() {
@@ -1054,9 +1059,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     // 風速（1日の最大）＋最大風速の時刻の風向き矢印（吹いていく向き）
     const wInfo = dayWindMaxInfo(lastData.hourly, dayDate);
     const wDeg = wInfo ? windToDeg(wInfo.dir) : null;
-    $('wxWind').innerHTML = wInfo != null
-      ? (wDeg != null && wInfo.spd > 0 ? `<span class="wdir" style="transform:rotate(${wDeg}deg)">↑</span>` : '') + `${wInfo.spd} m/s`
-      : '-- m/s';
+    const wArrow = wDeg != null && wInfo.spd > 0 ? `<span class="wdir" style="transform:rotate(${wDeg}deg)">↑</span>` : '';
+    const wIcon = wInfo && wInfo.img && wInfo.spd > 0 ? `<img class="wicon" src="https://gvs.weathernews.jp/onebox/img/wind/png/${wInfo.img}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : '';
+    $('wxWind').innerHTML = wInfo != null ? wArrow + wIcon + `${wInfo.spd} m/s` : '-- m/s';
 
     const popAm = card ? card.popAm : null;
     const popPm = card ? card.popPm : null;
@@ -1141,7 +1146,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const fl = r.temp != null ? feelsLike(r.temp, r.windSpd, r.wx, r.time, sun) : null;
       const pop = popMap[omKey(r.date, r.time)];
       const cls = r.time === nowHour ? ' class="nowrow"' : (nowHour >= 0 && r.time < nowHour ? ' class="past"' : '');
-      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="rn">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${windDirLabel(r.windDir) ?? '―'}</td></tr>`;
+      const dirLbl = windDirLabel(r.windDir) ?? '―';
+      const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
+      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="rn">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
     });
     body.innerHTML = html;
     // 今日表示のときは現在時刻の行まで自動スクロール
