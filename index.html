@@ -785,7 +785,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
 
   async function geocode(addr) {
-    const res = await fetch(GSI_SEARCH_URL(addr));
+    let res;
+    try { res = await fetchT(GSI_SEARCH_URL(addr), 10000); } catch (e) { throw new Error('住所検索に失敗しました'); }
     if (!res.ok) throw new Error('住所検索に失敗しました');
     const json = await res.json();
     // 国土地理院APIの応答は、Featureの配列そのもの（featuresプロパティは無い）
@@ -798,7 +799,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // 緯度経度→住所（OpenStreetMapの逆ジオコーディング、無料）
   async function reverseGeocode(lat, lon) {
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=ja&zoom=18`);
+      const res = await fetchT(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=jsonv2&accept-language=ja&zoom=18`, 10000);
       if (!res.ok) return null;
       const j = await res.json();
       const a = (j && j.address) || {};
@@ -885,6 +886,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     } catch (e) { return null; }
   }
 
+  // タイムアウト付きfetch：応答が固まっても ms で打ち切って失敗として扱う
+  function fetchT(url, ms) {
+    const ctl = new AbortController();
+    setTimeout(() => ctl.abort(), ms);
+    return fetch(url, { signal: ctl.signal });
+  }
+
   async function refresh(useCacheFirst) {
     const loc = selectedLoc();
     if (!loc) { setStatus('地点が登録されていません', true); return; }
@@ -893,9 +901,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     setStatus('予報を取得中…');
     try {
       const [mrfRes, pageRes, omRes] = await Promise.all([
-        fetch(WN_MRF_URL(loc.lat, loc.lon)).then(r => { if (!r.ok) throw new Error('mrf'); return r.json(); }),
-        fetch(WN_PAGE_URL(loc.lat, loc.lon)).then(r => { if (!r.ok) throw new Error('page'); return r.text(); }),
-        fetch(OM_URL(loc.lat, loc.lon)).then(r => { if (!r.ok) throw new Error('om'); return r.json(); }).catch(() => null)
+        fetchT(WN_MRF_URL(loc.lat, loc.lon), 20000).then(r => { if (!r.ok) throw new Error('mrf'); return r.json(); }),
+        fetchT(WN_PAGE_URL(loc.lat, loc.lon), 20000).then(r => { if (!r.ok) throw new Error('page'); return r.text(); }),
+        fetchT(OM_URL(loc.lat, loc.lon), 10000).then(r => { if (!r.ok) throw new Error('om'); return r.json(); }).catch(() => null)
       ]);
       const data = {
         mrf: mrfRes.mrf || [],
