@@ -275,7 +275,7 @@
         <div class="wx-text" id="wxText">読み込み中…</div>
         <div class="wx-temps">最高 <b class="hi" id="wxHigh">--℃</b>　最低 <b class="lo" id="wxLow">--℃</b></div>
         <div class="feels-strip">
-          <span class="fk">🌡️ 体感温度（日中平均）</span>
+          <span class="fk" id="feelAvgLabel">🌡️ 体感温度（日中平均）</span>
           <span class="fv" id="feelAvg">--℃</span>
         </div>
         <div class="grid2">
@@ -756,6 +756,35 @@ function daytimeWindAvg(hourly, dateObj) {
   if (!rows.length) return null;
   return Math.round((rows.reduce((a, b) => a + b.windSpd, 0) / rows.length) * 10) / 10;
 }
+/* ---------- 夜間モード（日没〜0時まで） ---------- */
+// 現在時刻（JST）がその日の日没後なら、夜間の対象時間帯 {from, to}（時）を返す。それ以外（0時〜日の出前を含む）は null
+//   0時を過ぎたら通常（日中平均）に戻す：翌朝の出勤時の服装判定が見えるようにするため（hirmy の仕様変更 2026-11-14）
+function nightPeriod(sun, nowJst) {
+  if (!sun || !nowJst) return null;
+  const mins = nowJst.getUTCHours() * 60 + nowJst.getUTCMinutes();
+  if (mins >= sun.set) return { from: Math.floor(sun.set / 60), to: 23 };
+  return null;
+}
+// 指定時間帯の体感温度の平均（daytimeFeelsAvg の時間帯版）。取れない場合はその日の全時間で代替
+function periodFeelsAvg(hourly, dateObj, from, to, fallbackTemp, sun) {
+  if (hourly && hourly.length) {
+    let rows = hourly.filter(r => sameDay(r.date, dateObj) && r.time >= from && r.time <= to && r.temp != null);
+    if (!rows.length) rows = hourly.filter(r => sameDay(r.date, dateObj) && r.temp != null);
+    const vals = rows.map(r => feelsLike(r.temp, r.windSpd, r.wx, r.time, sun)).filter(v => v != null);
+    if (vals.length) return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+  if (Number.isFinite(fallbackTemp)) return feelsLike(fallbackTemp, 0);
+  return null;
+}
+// 指定時間帯の風速の平均（m/s、服装判定の補正用、daytimeWindAvg の時間帯版）
+function periodWindAvg(hourly, dateObj, from, to) {
+  if (!hourly || !hourly.length) return null;
+  let rows = hourly.filter(r => sameDay(r.date, dateObj) && r.time >= from && r.time <= to && r.windSpd != null);
+  if (!rows.length) rows = hourly.filter(r => sameDay(r.date, dateObj) && r.windSpd != null);
+  if (!rows.length) return null;
+  return Math.round((rows.reduce((a, b) => a + b.windSpd, 0) / rows.length) * 10) / 10;
+}
+
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const LS_LOC = 'wn_clothes_locations_v1';
@@ -1094,8 +1123,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('wxHigh').textContent = `${m.MAXT}℃`;
     $('wxLow').textContent = `${m.MINT}℃`;
 
-    // 体感温度（9時〜16時の平均）
-    const fAvg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sunRange(m));
+    // 体感温度（日中は9時〜16時の平均。今日の夜間は夜間平均に切り替え）
+    const sunM = sunRange(m);
+    let fAvg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sunM);
+    let feelLbl = '🌡️ 体感温度（日中平均）';
+    if (offset === 0) {
+      const np = nightPeriod(sunM, jstNow());
+      if (np) { fAvg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sunM); feelLbl = '🌡️ 体感温度（夜間平均）'; }
+    }
+    $('feelAvgLabel').textContent = feelLbl;
     $('feelAvg').textContent = fAvg != null ? `${fAvg}℃` : '--℃';
     // 風速（1日の最大）＋最大風速の時刻の風向き矢印（吹いていく向き）
     const wInfo = dayWindMaxInfo(lastData.hourly, dayDate);
@@ -1126,8 +1162,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const m = e.mrf;
     const dayDate = dateOfEntry(e);
     const sun = sunRange(m);
-    const avg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sun);
-    const wAvg = daytimeWindAvg(lastData.hourly, dayDate);
+    let avg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sun);
+    let wAvg = daytimeWindAvg(lastData.hourly, dayDate);
+    if ((DAY_OFFSET[currentDay] ?? 0) === 0) {
+      const np = nightPeriod(sun, jstNow());
+      if (np) { avg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sun); wAvg = periodWindAvg(lastData.hourly, dayDate, np.from, np.to); }
+    }
     const o = workOutfitFor(judgeTemp(avg, wAvg));
     $('outfitTops').textContent = o.tops;
     $('outfitBottoms').textContent = o.bottoms;
@@ -1300,7 +1340,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
 }
 </script>
 <script>
