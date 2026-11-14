@@ -367,7 +367,7 @@
 
 const WN_MRF_URL = (lat, lon) => `https://site.weathernews.jp/lba/wxdata/api_data_ss1/mrf?lat=${lat}&lon=${lon}`;
 const WN_PAGE_URL = (lat, lon) => `https://weathernews.jp/onebox/${lat}/${lon}/temp=c&lang=ja`;
-const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
+const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,relative_humidity_2m&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
 
 // 風向アイコン wind_{速度区分}_{風向コード}.png の風向コード（01〜16）→ 16方位ラベル
 // （矢印は風の進む先を指す。コード16＝北の風、時計回りに22.5度ずつ。00は静穏）
@@ -387,6 +387,20 @@ function parseOmPop(json) {
       if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = Math.round(v);
     }
   } catch (e) { /* 取れなければ空マップ（表示は「―」になる） */ }
+  return out;
+}
+
+// Open-Meteo: 1時間ごとの湿度（%）を {"2026-11-12T09": 62} のマップにする（体感温度の湿度補正用）
+function parseOmHum(json) {
+  const out = {};
+  try {
+    const times = (json && json.hourly && json.hourly.time) || [];
+    const hums = (json && json.hourly && json.hourly.relative_humidity_2m) || [];
+    for (let i = 0; i < times.length; i++) {
+      const v = hums[i];
+      if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = Math.round(v);
+    }
+  } catch (e) { /* 取れなければ空マップ（湿度補正なし＝従来の計算になる） */ }
   return out;
 }
 
@@ -444,7 +458,17 @@ function wxEmoji(code) {
 }
 
 /* ---------- 体感温度（気温と風速から計算する目安） ---------- */
-function feelsLike(temp, windSpd, wx, hour, sun) {
+// 湿度による体感の補正（℃）。湿度が取れていない時間は 0（従来通り）
+//   暑い側：27℃以上は湿度80%以上で+2、60%以上で+1／24〜26℃は湿度80%以上で+1（蒸し暑さ）
+//   寒い側：8℃以下は湿度85%以上で−1（湿った寒さ）
+function humidityCorrection(temp, hum) {
+  if (!Number.isFinite(temp) || !Number.isFinite(hum)) return 0;
+  if (temp >= 27) return hum >= 80 ? 2 : hum >= 60 ? 1 : 0;
+  if (temp >= 24) return hum >= 80 ? 1 : 0;
+  if (temp <= 8) return hum >= 85 ? -1 : 0;
+  return 0;
+}
+function feelsLike(temp, windSpd, wx, hour, sun, hum) {
   if (!Number.isFinite(temp)) return null;
   const v = Number.isFinite(windSpd) ? windSpd : 0;
   let base;
@@ -461,6 +485,7 @@ function feelsLike(temp, windSpd, wx, hour, sun) {
     // 暖かい時期は風による体感低下を控えめに見積もる
     base = temp - Math.min(2.5, 0.5 * v);
   }
+  base += humidityCorrection(temp, hum);
   // 天気による補正（指定ルール）：晴れ（100番台）+1℃ / 雨（300番台）−1℃ / 雪（400番台）−2℃
   // ただし晴れ補正は昼間だけ（日の出〜日の入りの間）。夜間は補正なし
   let adj = 0;
@@ -722,10 +747,10 @@ function findNextRain(hourly, week, now) {
 function daytimeFeelsAvg(hourly, dateObj, fallbackTemp, sun) {
   if (hourly && hourly.length) {
     const rows = hourly.filter(r => sameDay(r.date, dateObj) && r.time >= 9 && r.time <= 16 && r.temp != null);
-    const vals = rows.map(r => feelsLike(r.temp, r.windSpd, r.wx, r.time, sun)).filter(v => v != null);
+    const vals = rows.map(r => feelsLike(r.temp, r.windSpd, r.wx, r.time, sun, r.hum)).filter(v => v != null);
     if (vals.length) return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
     const r14 = hourly.find(r => sameDay(r.date, dateObj) && r.time === 14);
-    if (r14 && r14.temp != null) return feelsLike(r14.temp, r14.windSpd, r14.wx, r14.time, sun);
+    if (r14 && r14.temp != null) return feelsLike(r14.temp, r14.windSpd, r14.wx, r14.time, sun, r14.hum);
   }
   if (Number.isFinite(fallbackTemp)) return feelsLike(fallbackTemp, 0);
   return null;
@@ -777,7 +802,7 @@ function periodFeelsAvg(hourly, dateObj, from, to, fallbackTemp, sun) {
   if (hourly && hourly.length) {
     let rows = hourly.filter(r => sameDay(r.date, dateObj) && r.time >= from && r.time <= to && r.temp != null);
     if (!rows.length) rows = hourly.filter(r => sameDay(r.date, dateObj) && r.temp != null);
-    const vals = rows.map(r => feelsLike(r.temp, r.windSpd, r.wx, r.time, sun)).filter(v => v != null);
+    const vals = rows.map(r => feelsLike(r.temp, r.windSpd, r.wx, r.time, sun, r.hum)).filter(v => v != null);
     if (vals.length) return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
   }
   if (Number.isFinite(fallbackTemp)) return feelsLike(fallbackTemp, 0);
@@ -1150,7 +1175,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     setStatus('予報を取得中…');
     try {
       // Open-Meteoは1時間単位でしか変わらないため、前回取得から1時間以内なら取り直さず前回分を使う
-      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && Date.now() - cached.omFetchedAt < 3600000);
+      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && cached.humMap && Date.now() - cached.omFetchedAt < 3600000);
       // ウェザーニュースのCDNキャッシュ（ページは最大10分）も避けるため、取得ごとに変わる目印をURLへ付ける
       const bust = `&_wn=${Date.now()}`;
       const [mrfRes, pageRes, omRes] = await Promise.all([
@@ -1166,10 +1191,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         placeName: parsePlaceName(pageRes),
         obs: parseObserved(pageRes),
         popMap: omFresh ? cached.popMap : (omRes ? parseOmPop(omRes) : ((cached && cached.popMap) || {})), // 取得失敗時は前回の降水確率を保持する
+        humMap: omFresh ? cached.humMap : (omRes ? parseOmHum(omRes) : ((cached && cached.humMap) || {})), // 湿度も降水確率と同じ扱い（体感補正用）
         omWind: omFresh ? cached.omWind : (omRes ? parseOmWind(omRes) : ((cached && cached.omWind) || {})),
         omFetchedAt: omFresh ? cached.omFetchedAt : (omRes ? Date.now() : (cached ? cached.omFetchedAt : 0)),
         fetchedAt: Date.now()
       };
+      // 湿度を各時間の行へ付ける（体感温度の湿度補正で使う。キャッシュにもそのまま残る）
+      data.hourly.forEach(r => { const h = data.humMap[omKey(r.date, r.time)]; if (h != null) r.hum = h; });
       // 構造変更などで中身が読めていない場合は失敗扱いにし、前回データを壊さない
       if (!data.mrf.length || data.hourly.length < 48 || data.week.length < 7) throw new Error('parse');
       lastData = data;
@@ -1242,7 +1270,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
   function feelsAt(dateObj, hour, fallbackTemp, sun) {
     const r = hourlyRow(dateObj, hour);
-    if (r && r.temp != null) return feelsLike(r.temp, r.windSpd, r.wx, hour, sun);
+    if (r && r.temp != null) return feelsLike(r.temp, r.windSpd, r.wx, hour, sun, r.hum);
     if (Number.isFinite(fallbackTemp)) return feelsLike(fallbackTemp, 0);
     return null;
   }
@@ -1405,7 +1433,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const nowHour = currentDay === 'today' ? jstNow().getUTCHours() : -1;
     let html = '';
     rows.forEach(r => {
-      const fl = r.temp != null ? feelsLike(r.temp, r.windSpd, r.wx, r.time, sun) : null;
+      const fl = r.temp != null ? feelsLike(r.temp, r.windSpd, r.wx, r.time, sun, r.hum) : null;
       const pop = popMap[omKey(r.date, r.time)];
       const cls = r.time === nowHour ? ' class="nowrow"' : (nowHour >= 0 && r.time < nowHour ? ' class="past"' : '');
       const dirLbl = windDirLabel(r.windDir) ?? '―';
@@ -1522,7 +1550,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmHum, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
