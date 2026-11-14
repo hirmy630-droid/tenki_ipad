@@ -294,6 +294,27 @@
   body.dark .loc-item .edit { color: #4da3ff; }
   body.dark .theme-row { border-top-color: #38383a; }
   body.dark #radarFrame { background: #2c2c2e; }
+  /* 日別の降水予報ポップアップ（週間カードのタップ） */
+  .wk-card.tap { cursor: pointer; }
+  .wk-card.tap:active { transform: scale(0.97); }
+  .day-date { color: #007aff; font-weight: 700; font-size: 17px; white-space: nowrap; margin-right: 10px; }
+  .day-sumrow { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 12px; }
+  .day-sumlabel { font-size: 16px; font-weight: 600; color: #4b5563; flex: 0 0 auto; padding-top: 2px; }
+  .day-sum { flex: 1; text-align: right; color: #007aff; font-weight: 700; font-size: 16px; line-height: 1.45; }
+  .day-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .day-block { border: 1px solid #d1d1d6; border-radius: 14px; padding: 14px 8px; text-align: center; background: #fff; }
+  .day-block .db-t { font-size: 18px; font-weight: 700; color: #374151; }
+  .day-block .db-p { font-size: 28px; font-weight: 800; color: #007aff; margin: 4px 0 2px; }
+  .day-block .db-temp { font-size: 16px; color: #6b7280; }
+  .day-block .db-wind { font-size: 15px; color: #6b7280; margin-top: 2px; }
+  .day-btnrow { display: flex; gap: 10px; margin-top: 16px; }
+  .day-btnrow .btn { flex: 1; }
+  .day-closebtn { border: 1px solid #d1d1d6; background: #f2f2f7; color: #1c1c1e; border-radius: 10px; padding: 0 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
+  body.dark .day-sumlabel { color: #aeaeb2; }
+  body.dark .day-block { background: #2c2c2e; border-color: #48484a; }
+  body.dark .day-block .db-t { color: #e5e5ea; }
+  body.dark .day-block .db-temp, body.dark .day-block .db-wind { color: #aeaeb2; }
+  body.dark .day-closebtn { background: #2c2c2e; border-color: #48484a; color: #f2f2f7; }
 </style>
 </head>
 <body>
@@ -422,12 +443,24 @@
   </div>
 </div>
 
+<!-- ポップアップ：日別の降水予報（6時間区切り） -->
+<div class="overlay hidden" id="dayModal">
+  <div class="sheet">
+    <div class="sheet-head"><h3 id="dayTitle">💧 降水予報</h3><span class="day-date" id="dayDate"></span><button type="button" class="sheet-close" data-close="dayModal">✕</button></div>
+    <div id="dayBody"><p class="note">読み込み中…</p></div>
+    <div class="day-btnrow">
+      <button type="button" class="btn btn-blue" data-close="dayModal">← 週間予報に戻る</button>
+      <button type="button" class="day-closebtn" data-close="dayModal">閉じる</button>
+    </div>
+  </div>
+</div>
+
 <script>
 'use strict';
 
 const WN_MRF_URL = (lat, lon) => `https://site.weathernews.jp/lba/wxdata/api_data_ss1/mrf?lat=${lat}&lon=${lon}`;
 const WN_PAGE_URL = (lat, lon) => `https://weathernews.jp/onebox/${lat}/${lon}/temp=c&lang=ja`;
-const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,relative_humidity_2m&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
+const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,relative_humidity_2m,temperature_2m,wind_speed_10m&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
 
 // 風向アイコン wind_{速度区分}_{風向コード}.png の風向コード（01〜16）→ 16方位ラベル
 // （矢印は風の進む先を指す。コード16＝北の風、時計回りに22.5度ずつ。00は静穏）
@@ -475,6 +508,53 @@ function parseOmWind(json) {
       if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 10)] = v;
     }
   } catch (e) { /* 取れなければ空マップ（補完なし） */ }
+  return out;
+}
+
+// Open-Meteo: 1時間ごとの気温（℃）を {"2026-11-12T09": 18.5} のマップにする（6時間区切りの降水予報ポップアップ用）
+function parseOmTemp(json) {
+  const out = {};
+  try {
+    const times = (json && json.hourly && json.hourly.time) || [];
+    const temps = (json && json.hourly && json.hourly.temperature_2m) || [];
+    for (let i = 0; i < times.length; i++) {
+      const v = temps[i];
+      if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = v;
+    }
+  } catch (e) { /* 取れなければ空マップ（表示は「―」になる） */ }
+  return out;
+}
+
+// Open-Meteo: 1時間ごとの風速（m/s）を {"2026-11-12T09": 4.2} のマップにする（6時間区切りポップアップ用）
+function parseOmWindH(json) {
+  const out = {};
+  try {
+    const times = (json && json.hourly && json.hourly.time) || [];
+    const winds = (json && json.hourly && json.hourly.wind_speed_10m) || [];
+    for (let i = 0; i < times.length; i++) {
+      const v = winds[i];
+      if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = v;
+    }
+  } catch (e) { /* 取れなければ空マップ（表示は「―」になる） */ }
+  return out;
+}
+
+// 6時間区切りの集計（降水確率は区間の最大値、気温は区間の平均、風速は区間の最大値）。日別の降水予報ポップアップ用
+function sixHourBlocks(dateObj, popMap, tempMap, windMap) {
+  const labels = ['0–6時', '6–12時', '12–18時', '18–24時'];
+  const out = [];
+  for (let b = 0; b < 4; b++) {
+    let pop = null, tSum = 0, tCnt = 0, wind = null;
+    for (let h = b * 6; h < b * 6 + 6; h++) {
+      const p = popMap ? popMap[omKey(dateObj, h)] : null;
+      if (p != null && (pop === null || p > pop)) pop = p;
+      const t = tempMap ? tempMap[omKey(dateObj, h)] : null;
+      if (t != null) { tSum += t; tCnt++; }
+      const wd = windMap ? windMap[omKey(dateObj, h)] : null;
+      if (wd != null && (wind === null || wd > wind)) wind = wd;
+    }
+    out.push({ label: labels[b], pop, temp: tCnt ? Math.round(tSum / tCnt) : null, wind: wind != null ? Math.round(wind) : null });
+  }
   return out;
 }
 
@@ -1235,7 +1315,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     setStatus('予報を取得中…');
     try {
       // Open-Meteoは1時間単位でしか変わらないため、前回取得から1時間以内なら取り直さず前回分を使う
-      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && cached.humMap && Date.now() - cached.omFetchedAt < 3600000);
+      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && cached.humMap && cached.tempMap && cached.windMap && Date.now() - cached.omFetchedAt < 3600000);
       // ウェザーニュースのCDNキャッシュ（ページは最大10分）も避けるため、取得ごとに変わる目印をURLへ付ける
       const bust = `&_wn=${Date.now()}`;
       const [mrfRes, pageRes, omRes] = await Promise.all([
@@ -1252,6 +1332,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         obs: parseObserved(pageRes),
         popMap: omFresh ? cached.popMap : (omRes ? parseOmPop(omRes) : ((cached && cached.popMap) || {})), // 取得失敗時は前回の降水確率を保持する
         humMap: omFresh ? cached.humMap : (omRes ? parseOmHum(omRes) : ((cached && cached.humMap) || {})), // 湿度も降水確率と同じ扱い（体感補正用）
+        tempMap: omFresh ? cached.tempMap : (omRes ? parseOmTemp(omRes) : ((cached && cached.tempMap) || {})), // 気温も同じ扱い（6時間区切りポップアップ用）
+        windMap: omFresh ? cached.windMap : (omRes ? parseOmWindH(omRes) : ((cached && cached.windMap) || {})), // 風速も同じ扱い（6時間区切りポップアップ用）
         omWind: omFresh ? cached.omWind : (omRes ? parseOmWind(omRes) : ((cached && cached.omWind) || {})),
         omFetchedAt: omFresh ? cached.omFetchedAt : (omRes ? Date.now() : (cached ? cached.omFetchedAt : 0)),
         fetchedAt: Date.now()
@@ -1542,12 +1624,44 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         else wind = '―';
       }
       const pop = w.rainUnit === '%' ? `${w.rainVal}%` : (w.rainVal != null ? `${w.rainVal}ミリ` : '―');
-      html += `<div class="wk-card"><div class="wk-d">${base.getUTCMonth() + 1}/${base.getUTCDate()}<br><span class="${dowCls}">（${'日月火水木金土'[dowN]}）</span></div>` +
+      html += `<div class="wk-card tap" data-wi="${i}"><div class="wk-d">${base.getUTCMonth() + 1}/${base.getUTCDate()}<br><span class="${dowCls}">（${'日月火水木金土'[dowN]}）</span></div>` +
         `<div class="wk-e">${wxEmoji(w.wx)}</div>` +
         `<div class="wk-t"><span class="hi">${w.high ?? '--'}℃</span> <span class="lo">${w.low ?? '--'}℃</span></div>` +
         `<div class="${windCls}">💨 ${wind}</div><div class="wk-pop">💧 ${pop}</div></div>`;
     });
     el.innerHTML = html;
+    el.querySelectorAll('.wk-card[data-wi]').forEach(card => {
+      card.addEventListener('click', () => openDayPopup(Number(card.getAttribute('data-wi'))));
+    });
+  }
+
+  // 週間予報の日タップで開く「降水予報」ポップアップ（6時間区切りは Open-Meteo の1時間値を集計）
+  function openDayPopup(i) {
+    if (!lastData || !lastData.week || !lastData.week[i]) return;
+    const w = lastData.week[i];
+    const jn = jstNow();
+    const base = new Date(jn.getUTCFullYear(), jn.getUTCMonth(), jn.getUTCDate() + i);
+    const blocks = sixHourBlocks(base, lastData.popMap || {}, lastData.tempMap || {}, lastData.windMap || {});
+    // コメント判定用の1日降水確率：週間予報の％表示を優先し、無い日は Open-Meteo の区間最大で代用（画面には表示しない）
+    let dayPop = w.rainUnit === '%' ? w.rainVal : null;
+    if (dayPop == null) {
+      const all = blocks.map(b => b.pop).filter(v => v != null);
+      dayPop = all.length ? Math.max(...all) : null;
+    }
+    const level = dayPop == null ? 0 : dayPop >= 70 ? 3 : dayPop >= 50 ? 2 : dayPop >= 30 ? 1 : 0;
+    const comments = ['雨の心配は少なめ', '雨の心配が少しあります', '雨が降りやすくなっています', '雨の心配が大きいです'];
+    const loc = selectedLoc();
+    const place = lastData.placeName || (loc ? (loc.name || loc.addr) : '');
+    $('dayTitle').textContent = `💧 ${place} 降水予報`;
+    $('dayDate').textContent = `${base.getDate()}日（${'日月火水木金土'[base.getDay()]}）`;
+    let html = `<div class="day-sumrow"><span class="day-sumlabel">時間帯別の雨予報</span><span class="day-sum">${comments[level]}</span></div>`;
+    html += '<div class="day-grid">';
+    blocks.forEach(b => {
+      html += `<div class="day-block"><div class="db-t">${b.label}</div><div class="db-p">${b.pop != null ? `${b.pop}%` : '―'}</div><div class="db-temp">${b.temp != null ? `約${b.temp}℃` : '―'}</div><div class="db-wind">${b.wind != null ? `風速 ${b.wind}m/s` : '―'}</div></div>`;
+    });
+    html += '</div>';
+    $('dayBody').innerHTML = html;
+    openModal('dayModal');
   }
 
   // 雨雲レーダー（選択中の地点の地図をポップアップ表示）
@@ -1625,7 +1739,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmHum, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
