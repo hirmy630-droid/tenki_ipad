@@ -308,7 +308,7 @@
   .day-block .db-temp { font-size: 16px; color: #6b7280; }
   .day-block .db-wind { font-size: 15px; color: #6b7280; margin-top: 2px; }
   .day-btnrow { display: flex; gap: 10px; margin-top: 16px; }
-  .day-btnrow .btn { flex: 1; }
+  .day-btnrow .day-closebtn { flex: 1; padding: 11px; }
   .day-closebtn { border: 1px solid #d1d1d6; background: #f2f2f7; color: #1c1c1e; border-radius: 10px; padding: 0 22px; font-size: 15px; font-weight: 700; cursor: pointer; }
   body.dark .day-sumlabel { color: #aeaeb2; }
   body.dark .day-block { background: #2c2c2e; border-color: #48484a; }
@@ -449,7 +449,6 @@
     <div class="sheet-head"><h3 id="dayTitle">💧 降水予報</h3><span class="day-date" id="dayDate"></span><button type="button" class="sheet-close" data-close="dayModal">✕</button></div>
     <div id="dayBody"><p class="note">読み込み中…</p></div>
     <div class="day-btnrow">
-      <button type="button" class="btn btn-blue" data-close="dayModal">← 週間予報に戻る</button>
       <button type="button" class="day-closebtn" data-close="dayModal">閉じる</button>
     </div>
   </div>
