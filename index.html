@@ -104,6 +104,7 @@
   table.htable td.tm { font-weight: 800; font-size: 16px; white-space: nowrap; }
   table.htable td.fl { color: #ff9500; font-weight: 800; }
   table.htable td.rn { color: #007aff; font-weight: 800; }
+  table.htable td.rz { color: #6b7280; font-weight: 800; }
   table.htable tr.past td { opacity: .42; }
   table.htable tr.nowrow td { background: #fff7e6; }
 
@@ -1409,7 +1410,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const cls = r.time === nowHour ? ' class="nowrow"' : (nowHour >= 0 && r.time < nowHour ? ' class="past"' : '');
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
-      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="rn">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
+      const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40)) ? 'rn' : 'rz';
+      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
     });
     body.innerHTML = html;
     // 今日表示のときは現在時刻の行まで自動スクロール
