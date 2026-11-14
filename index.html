@@ -46,7 +46,7 @@
   .card h2 { margin: 0; }
 
   /* 左：メイン予報（データ配置はiPhone版に合わせる） */
-  .now-strip { background: linear-gradient(135deg, #007aff, #38b6ff); color: #fff; border-radius: 12px; padding: 10px 16px; margin-bottom: 15px; }
+  .now-strip { background: #007aff; color: #fff; border-radius: 12px; padding: 10px 16px; margin-bottom: 15px; }
   .nw-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
   .nw-row + .nw-row { margin-top: 2px; gap: 22px; }
   .nw-k { font-size: 17px; font-weight: 700; opacity: .92; }
@@ -98,15 +98,20 @@
   .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
   .hourly-scroll { max-height: 566px; overflow-y: auto; }
   table.htable { width: 100%; border-collapse: collapse; }
-  table.htable th { position: sticky; top: 0; background: #eef0f4; font-size: 15px; color: #4b5563; font-weight: 700; padding: 8px 6px; text-align: center; z-index: 1; }
-  table.htable td { font-size: 17px; padding: 9px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
+  table.htable th { position: sticky; top: 0; background: #eef0f4; font-size: 16.5px; color: #4b5563; font-weight: 700; padding: 8px 6px; text-align: center; z-index: 1; }
+  table.htable td { font-size: 19px; padding: 9px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
   table.htable td.wxe { font-size: 22px; }
-  table.htable td.tm { font-weight: 800; font-size: 16px; white-space: nowrap; }
+  table.htable td.tm { font-weight: 800; font-size: 18px; white-space: nowrap; }
   table.htable td.fl { color: #ff9500; font-weight: 800; }
   table.htable td.rn { color: #007aff; font-weight: 800; }
   table.htable td.rz { color: #6b7280; font-weight: 800; }
   table.htable tr.past td { opacity: .42; }
   table.htable tr.nowrow td { background: #fff7e6; }
+  /* 天気アイコンはレイアウト（行の高さ・幅）に影響しないよう、見た目だけ transform で拡大 */
+  .wxe-s { display: inline-block; transform: scale(1.35); }
+  .wx-emoji { transform: scale(1.3); }
+  .nw-e { display: inline-block; transform: scale(1.3); }
+  .wk-e { transform: scale(1.3); }
 
   /* 右：週間（カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水） */
   .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
@@ -236,7 +241,7 @@
     .col-left .advice { margin-top: auto; }
     .nr-title, .panel-title { font-size: 17px; margin-bottom: 8px; }
     .nextrain { font-size: 15.5px; }
-    table.htable td { padding: 5px 6px; font-size: 16px; }
+    table.htable td { padding: 5px 6px; font-size: 17.5px; }
     table.htable td.wxe { font-size: 20px; }
   }
   /* 表示モード切替（登録ポップアップ内） */
@@ -1494,7 +1499,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
       const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40)) ? 'rn' : 'rz';
-      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe">${wxEmoji(r.wx)}</td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? r.rainMm : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
+      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
     });
     body.innerHTML = html;
     // 今日表示のときは現在時刻の行まで自動スクロール
