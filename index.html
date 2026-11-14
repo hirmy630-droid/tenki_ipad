@@ -239,9 +239,60 @@
     table.htable td { padding: 5px 6px; font-size: 16px; }
     table.htable td.wxe { font-size: 20px; }
   }
+  /* 表示モード切替（登録ポップアップ内） */
+  .theme-row { display: flex; align-items: center; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #e5e5ea; }
+  .theme-row .theme-label { flex: 1; font-size: 14px; font-weight: 600; }
+  /* ダークモード（色だけ変更し、レイアウトは変えない） */
+  body.dark { background: #101013; color: #f2f2f7; }
+  body.dark h1 .h-sub { color: #aeaeb2; background: #2c2c2e; }
+  body.dark .btn-loc, body.dark .btn-refresh, body.dark .btn-radar { background: #1c1c1e; border-color: #48484a; color: #f2f2f7; }
+  body.dark .tabs { background: #2c2c2e; }
+  body.dark .tabs button { color: #d1d1d6; }
+  body.dark .tabs button.on { background: #ff9500; color: #fff; }
+  body.dark .status-line { color: #aeaeb2; }
+  body.dark .card { background: #1c1c1e; border-color: #38383a; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+  body.dark .day-title { color: #d1d1d6; }
+  body.dark .hi { color: #ff6b61; }
+  body.dark .lo { color: #4da3ff; }
+  body.dark .feels-strip { background: #33291a; }
+  body.dark .feels-strip .fk { color: #e8c07a; }
+  body.dark .cell { background: #2c2c2e; border-color: #38383a; }
+  body.dark .cell .k { color: #aeaeb2; }
+  body.dark .card.outfit { background: #241c12; border-color: #6b5836; }
+  body.dark .of-title, body.dark .of-k { color: #e8a34c; }
+  body.dark .of-box { background: #1c1c1e; border-color: #6b5836; }
+  body.dark .b3 { background: #1c1c1e; }
+  body.dark .b3-k { color: #aeaeb2; }
+  body.dark .b3-v.c20 { color: #4da3ff; }
+  body.dark .advice.rain { background: #12283f; }
+  body.dark .advice.ok { background: #14301c; }
+  body.dark .advice.warn { background: #33291a; }
+  body.dark table.htable th { background: #2c2c2e; color: #aeaeb2; }
+  body.dark table.htable td { border-bottom-color: #38383a; }
+  body.dark table.htable td.rz { color: #aeaeb2; }
+  body.dark table.htable tr.nowrow td { background: #33291a; }
+  body.dark .wk-card { background: #2c2c2e; border-color: #38383a; }
+  body.dark .wk-d .sat { color: #4da3ff; }
+  body.dark .wk-wind { color: #d1d1d6; }
+  body.dark .wk-pop { color: #4da3ff; }
+  body.dark .note { color: #8e8e93; }
+  body.dark .alert-banner.sev1 { background: #3a3114; border-color: #e6c34a; color: #f5d76e; }
+  body.dark .alert-banner.sev2 { background: #3d1717; border-color: #ef5350; color: #ff9d97; }
+  body.dark .alert-banner.sev3 { background: #2e1738; border-color: #8e24aa; color: #d7a8e8; }
+  body.dark .sheet { background: #1c1c1e; }
+  body.dark .sheet-close { background: #2c2c2e; color: #d1d1d6; }
+  body.dark .sheet input[type="text"] { background: #2c2c2e; border-color: #48484a; color: #f2f2f7; }
+  body.dark .btn-gray { background: #2c2c2e; border-color: #48484a; color: #4da3ff; }
+  body.dark .loc-item { background: #2c2c2e; border-color: #38383a; }
+  body.dark .loc-item.selected { background: #12283f; border-color: #007aff; }
+  body.dark .loc-item .ad { color: #aeaeb2; }
+  body.dark .loc-item .edit { color: #4da3ff; }
+  body.dark .theme-row { border-top-color: #38383a; }
+  body.dark #radarFrame { background: #2c2c2e; }
 </style>
 </head>
 <body>
+<script>try { if (localStorage.getItem('wn_theme_v1') === 'dark') document.body.classList.add('dark'); } catch (e) {}</script>
 <div class="wrap">
   <header>
     <div class="h-left">
@@ -351,6 +402,10 @@
     <button type="button" class="btn btn-gray" id="geoBtn">📍 現在地を取得・再取得</button>
     <div class="loc-list" id="locList"></div>
     <p class="status-line" id="locStatus" style="margin-top:8px; text-align:left;"></p>
+    <div class="theme-row">
+      <span class="theme-label">🌗 表示モード</span>
+      <button type="button" class="btn btn-blue" id="themeToggleBtn">🌙 ダークに切り替え</button>
+    </div>
   </div>
 </div>
 
@@ -1507,6 +1562,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
 
 
+  const THEME_KEY = 'wn_theme_v1';
+  function applyTheme(dark) {
+    document.body.classList.toggle('dark', dark);
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute('content', dark ? '#101013' : '#f2f2f7');
+    const btn = $('themeToggleBtn');
+    if (btn) btn.textContent = dark ? '☀️ ライトに切り替え' : '🌙 ダークに切り替え';
+  }
   document.addEventListener('DOMContentLoaded', () => {
     loadLocations();
     renderLocations();
@@ -1528,6 +1592,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('addLocBtn').addEventListener('click', addLocation);
     $('locAddr').addEventListener('keydown', (e) => { if (e.key === 'Enter') addLocation(); });
     $('geoBtn').addEventListener('click', useCurrentLocation);
+    applyTheme(document.body.classList.contains('dark'));
+    $('themeToggleBtn').addEventListener('click', () => {
+      const dark = !document.body.classList.contains('dark');
+      try { localStorage.setItem(THEME_KEY, dark ? 'dark' : 'light'); } catch (e) {}
+      applyTheme(dark);
+    });
     $('refreshBtn').addEventListener('click', () => refresh(false));
     // 画面に戻ってきたとき、前回の取得から30分以上たっていたら自動で取り直す（裏では動かない）
     let autoRefreshing = false;
