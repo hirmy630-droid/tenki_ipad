@@ -123,6 +123,10 @@
 
   /* モーダル（地点管理・レーダー・降水/風の詳細） */
   .hidden { display: none !important; }
+  .alert-banner { font-size: 15px; border-radius: 12px; padding: 10px 12px; font-weight: 600; line-height: 1.55; }
+  .alert-banner.sev1 { background: #fff7e0; border: 1px solid #e6c34a; color: #6d4c00; }
+  .alert-banner.sev2 { background: #fdecea; border: 1px solid #ef5350; color: #b71c1c; }
+  .alert-banner.sev3 { background: #f3e5f5; border: 1px solid #8e24aa; color: #4a148c; }
   .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 18px; box-sizing: border-box; }
   .sheet { background: #fff; border-radius: 16px; padding: 18px; width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; box-sizing: border-box; }
   .sheet.wide { max-width: 920px; }
@@ -254,6 +258,8 @@
       </div>
     </div>
   </header>
+
+  <div id="alertBanner" class="alert-banner hidden" style="margin-top:10px;"></div>
 
   <main class="layout">
     <div class="col-left">
@@ -786,6 +792,99 @@ function periodWindAvg(hourly, dateObj, from, to) {
 }
 
 
+/* =========================================================
+   気象庁 警報・注意報（r8形式JSON）と、強い雨の注意判定
+   ========================================================= */
+const JMA_WARN_NAMES = {
+  '33': 'レベル５大雨特別警報', '43': 'レベル４大雨危険警報', '03': 'レベル３大雨警報', '10': 'レベル２大雨注意報',
+  '39': 'レベル５土砂災害特別警報', '49': 'レベル４土砂災害危険警報', '09': 'レベル３土砂災害警報', '29': 'レベル２土砂災害注意報',
+  '38': 'レベル５高潮特別警報', '48': 'レベル４高潮危険警報', '08': 'レベル３高潮警報', '19': 'レベル２高潮注意報',
+  '35': '暴風特別警報', '05': '暴風警報', '15': '強風注意報',
+  '32': '暴風雪特別警報', '02': '暴風雪警報', '13': '風雪注意報',
+  '36': '大雪特別警報', '06': '大雪警報', '12': '大雪注意報',
+  '37': '波浪特別警報', '07': '波浪警報', '16': '波浪注意報',
+  '04': '洪水警報', '18': '洪水注意報',
+  '14': '雷注意報', '17': '融雪注意報', '20': '濃霧注意報', '21': '乾燥注意報', '22': 'なだれ注意報',
+  '23': '低温注意報', '24': '霜注意報', '25': '着氷注意報', '26': '着雪注意報'
+};
+function jmaWarnSeverity(code) {
+  if (['32', '33', '35', '36', '37', '38', '39', '43', '48', '49'].includes(code)) return 3; // 特別警報・危険警報
+  if (['02', '03', '04', '05', '06', '07', '08', '09'].includes(code)) return 2; // 警報
+  return 1; // 注意報
+}
+// 気象庁 area.json と住所から、警報を見る市区町村コード（複数ある分割市は全部）と府県予報区コードを引く
+function resolveJmaArea(area, addr) {
+  if (!area || !area.class20s || !addr) return null;
+  const ancestorOffice = (v) => {
+    const c15 = area.class15s[v.parent]; if (!c15) return null;
+    const c10 = area.class10s[c15.parent]; if (!c10) return null;
+    return c10.parent;
+  };
+  const pm = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}県)/);
+  if (!pm) return null;
+  const pref = pm[0];
+  const rest = String(addr).slice(pref.length).replace(/^.+?郡/, '');
+  const entries = Object.entries(area.class20s).map(([code, v]) => ({ code, name: v.name, v }));
+  let cands = entries.filter(x => rest.startsWith(x.name)).sort((a, b) => b.name.length - a.name.length);
+  if (cands.length) {
+    const L = cands[0].name.length;
+    cands = cands.filter(x => x.name.length === L);
+    if (cands.length > 1) {
+      const byPref = cands.filter(x => { const off = ancestorOffice(x.v); return off && area.offices[off] && area.offices[off].name === pref; });
+      if (byPref.length) cands = byPref;
+    }
+    const c = cands[0];
+    return { muni: c.name, codes: [c.code], office: ancestorOffice(c.v) };
+  }
+  // 市が北部/南部などに分割されている場合は、その市の細分を全部まとめて見る
+  const mm = rest.match(/^(.+?市)/);
+  if (!mm) return null;
+  const parts = entries.filter(x => x.name.startsWith(mm[1]));
+  if (!parts.length) return null;
+  return { muni: mm[1], codes: parts.map(c => c.code), office: ancestorOffice(parts[0].v) };
+}
+// r8形式（報の配列）から、対象市区町村で発表中の警報・注意報を集める（発表・継続のみ。解除は除く）
+function parseJmaWarnings(reports, codes) {
+  if (!Array.isArray(reports) || !codes || !codes.length) return [];
+  const found = new Map();
+  reports.forEach(rep => {
+    const items = (rep && rep.warning && rep.warning.class20Items) || [];
+    items.forEach(it => {
+      if (!codes.includes(it.areaCode)) return;
+      (it.kinds || []).forEach(k => {
+        if (!k || !k.code) return;
+        const st = k.status || '';
+        if (st === '発表' || st === '継続' || /から(警報|注意報)$/.test(st)) {
+          if (!found.has(k.code)) found.set(k.code, { code: k.code, name: JMA_WARN_NAMES[k.code] || `警報・注意報（${k.code}）`, sev: jmaWarnSeverity(k.code) });
+        }
+      });
+    });
+  });
+  return [...found.values()].sort((a, b) => b.sev - a.sev);
+}
+// この先6時間の強い雨判定（ウェザーニュース1時間予報の降水量と雷マークから）
+function strongRainNote(hourly, nowDate) {
+  if (!hourly || !hourly.length) return null;
+  const now = nowDate || new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), now.getHours());
+  let max = null, thunder = false;
+  hourly.forEach(r => {
+    if (!r.date) return;
+    const dt = new Date(r.date.getFullYear(), r.date.getMonth(), r.date.getDate(), r.time);
+    const diffH = (dt - start) / 3600000;
+    if (diffH < 0 || diffH > 6) return;
+    if (r.rainMm != null && (max === null || r.rainMm > max.mm)) max = { mm: r.rainMm, hour: r.time };
+    if (/雷/.test(wxText(r.wx) || '')) thunder = true;
+  });
+  if (!max) return null;
+  if (max.mm >= 30) return { level: 3, mm: max.mm, hour: max.hour, thunder };
+  if (max.mm >= 20) return { level: 2, mm: max.mm, hour: max.hour, thunder };
+  if (max.mm >= 10) return { level: 1, mm: max.mm, hour: max.hour, thunder };
+  if (thunder && max.mm >= 1) return { level: 1, mm: max.mm, hour: max.hour, thunder };
+  return null;
+}
+
+
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   const LS_LOC = 'wn_clothes_locations_v1';
   const LS_CACHE = 'wn_clothes_cache_v2';
@@ -967,6 +1066,81 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     return fetch(url, { signal: ctl.signal, cache: 'no-store' });
   }
 
+  /* ===== 気象庁 警報・注意報の取得と注意表示 ===== */
+  const JMA_AREA_URL = 'https://www.jma.go.jp/bosai/common/const/area.json';
+  const JMA_R8_URL = (office) => `https://www.jma.go.jp/bosai/warning/data/r8/${office}.json`;
+  const LS_JMA_AREA = 'wn_jma_area_v1';
+  const LS_JMA_CODES = 'wn_jma_codes_v1';
+  let jmaAreaCache = null;
+
+  async function loadJmaArea() {
+    if (jmaAreaCache) return jmaAreaCache;
+    try { const s = localStorage.getItem(LS_JMA_AREA); if (s) { jmaAreaCache = JSON.parse(s); return jmaAreaCache; } } catch (e) {}
+    const res = await fetchT(JMA_AREA_URL, 15000);
+    if (!res.ok) throw new Error('jma-area');
+    jmaAreaCache = await res.json();
+    try { localStorage.setItem(LS_JMA_AREA, JSON.stringify(jmaAreaCache)); } catch (e) {}
+    return jmaAreaCache;
+  }
+
+  async function resolveForLoc(loc) {
+    let all = {};
+    try { all = JSON.parse(localStorage.getItem(LS_JMA_CODES) || '{}'); } catch (e) {}
+    if (all[loc.addr]) return all[loc.addr];
+    const area = await loadJmaArea();
+    const r = resolveJmaArea(area, loc.addr);
+    if (r && r.office) {
+      all[loc.addr] = r;
+      try { localStorage.setItem(LS_JMA_CODES, JSON.stringify(all)); } catch (e) {}
+      return r;
+    }
+    return null;
+  }
+
+  // 警報・注意報を取り直す（失敗しても天気の表示は壊さない。前回分があれば保持する）
+  async function refreshWarnings(loc) {
+    try {
+      const target = await resolveForLoc(loc);
+      if (!target) return;
+      const res = await fetchT(JMA_R8_URL(target.office), 10000);
+      if (!res.ok) return;
+      const reports = await res.json();
+      if (!Array.isArray(reports)) return;
+      const list = parseJmaWarnings(reports, target.codes);
+      const cur = selectedLoc();
+      if (!cur || cacheKey(cur) !== cacheKey(loc) || !lastData) return;
+      lastData.jmaWarn = { muni: target.muni, list, at: Date.now() };
+      saveCache(loc, lastData);
+      renderAlert();
+    } catch (e) {}
+  }
+
+  function renderAlert() {
+    const el = $('alertBanner');
+    if (!el || !lastData) return;
+    const parts = [];
+    let sev = 0;
+    const jw = lastData.jmaWarn;
+    if (jw && jw.list && jw.list.length) {
+      jw.list.forEach(w => { if (w.sev > sev) sev = w.sev; });
+      parts.push(`⚠️ ${jw.muni}に ${jw.list.map(w => w.name).join('・')} が発表されています（気象庁）`);
+    }
+    const sr = strongRainNote(lastData.hourly || [], new Date());
+    if (sr) {
+      if (sr.level > sev) sev = sr.level;
+      if (sr.mm >= 10) {
+        const lv = sr.level >= 3 ? '激しい雨' : sr.level === 2 ? '強い雨' : 'やや強い雨';
+        parts.push(`⛈ このあと ${sr.hour}時ごろに ${lv}の予報です（1時間に最大 ${sr.mm}ミリ）${sr.thunder ? '・雷のおそれ' : ''}`);
+      } else {
+        parts.push(`⛈ このあと ${sr.hour}時ごろに雷雨のおそれがあります（1時間に最大 ${sr.mm}ミリ）`);
+      }
+    }
+    if (!parts.length) { el.className = 'alert-banner hidden'; el.innerHTML = ''; return; }
+    el.className = 'alert-banner sev' + Math.min(3, Math.max(1, sev));
+    el.innerHTML = parts.join('<br>');
+  }
+
+
   async function refresh(useCacheFirst) {
     const loc = selectedLoc();
     if (!loc) { setStatus('地点が登録されていません', true); return; }
@@ -1002,6 +1176,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       render();
       const t = new Date(data.fetchedAt);
       setStatus(`最終取得：${t.getHours()}時${String(t.getMinutes()).padStart(2, '0')}分`);
+      refreshWarnings(loc);
     } catch (e) {
       if (cached) {
         lastData = cached; render();
@@ -1156,6 +1331,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     renderHourlyPanel();
     renderWeekStrip();
     renderLocBtn();
+    renderAlert();
   }
 
   // 服装（表示中の日に連動。9時〜16時の平均体感温度で判定）＋ 8時・14時・20時の体感温度
@@ -1344,7 +1520,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmWind, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
