@@ -1651,9 +1651,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const comments = ['雨の心配は少なめ', '雨の心配が少しあります', '雨が降りやすくなっています', '雨の心配が大きいです'];
     const loc = selectedLoc();
     const place = lastData.placeName || (loc ? (loc.name || loc.addr) : '');
-    $('dayTitle').textContent = `💧 ${place} 降水予報`;
+    $('dayTitle').textContent = `💧 ${place}`;
     $('dayDate').textContent = `${base.getDate()}日（${'日月火水木金土'[base.getDay()]}）`;
-    let html = `<div class="day-sumrow"><span class="day-sumlabel">時間帯別の雨予報</span><span class="day-sum">${comments[level]}</span></div>`;
+    let html = `<div class="day-sumrow"><span class="day-sum">${comments[level]}</span></div>`;
     html += '<div class="day-grid">';
     blocks.forEach(b => {
       html += `<div class="day-block"><div class="db-t">${b.label}</div><div class="db-p">${b.pop != null ? `${b.pop}%` : '―'}</div><div class="db-temp">${b.temp != null ? `約${b.temp}℃` : '―'}</div><div class="db-wind">${b.wind != null ? `風速 ${b.wind}m/s` : '―'}</div></div>`;
