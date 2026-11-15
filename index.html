@@ -460,7 +460,7 @@
 
 const WN_MRF_URL = (lat, lon) => `https://site.weathernews.jp/lba/wxdata/api_data_ss1/mrf?lat=${lat}&lon=${lon}`;
 const WN_PAGE_URL = (lat, lon) => `https://weathernews.jp/onebox/${lat}/${lon}/temp=c&lang=ja`;
-const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,relative_humidity_2m,temperature_2m,wind_speed_10m&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
+const OM_URL = (lat, lon) => `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=precipitation_probability,precipitation,relative_humidity_2m,temperature_2m,wind_speed_10m&daily=wind_speed_10m_max&wind_speed_unit=ms&timezone=Asia%2FTokyo&forecast_days=16`;
 
 // 風向アイコン wind_{速度区分}_{風向コード}.png の風向コード（01〜16）→ 16方位ラベル
 // （矢印は風の進む先を指す。コード16＝北の風、時計回りに22.5度ずつ。00は静穏）
@@ -480,6 +480,20 @@ function parseOmPop(json) {
       if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = Math.round(v);
     }
   } catch (e) { /* 取れなければ空マップ（表示は「―」になる） */ }
+  return out;
+}
+
+// Open-Meteo: 1時間ごとの降水量（mm）を {"2026-11-12T09": 0.8} のマップにする（雨量の色判定用）
+function parseOmPrecip(json) {
+  const out = {};
+  try {
+    const times = (json && json.hourly && json.hourly.time) || [];
+    const vals = (json && json.hourly && json.hourly.precipitation) || [];
+    for (let i = 0; i < times.length; i++) {
+      const v = vals[i];
+      if (typeof v === 'number' && Number.isFinite(v)) out[String(times[i]).slice(0, 13)] = v;
+    }
+  } catch (e) { /* 取れなければ空マップ（色判定は確率だけでは付けない） */ }
   return out;
 }
 
@@ -1315,7 +1329,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     setStatus('予報を取得中…');
     try {
       // Open-Meteoは1時間単位でしか変わらないため、前回取得から1時間以内なら取り直さず前回分を使う
-      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && cached.humMap && cached.tempMap && cached.windMap && Date.now() - cached.omFetchedAt < 3600000);
+      const omFresh = !!(cached && cached.omFetchedAt && cached.popMap && cached.precipMap && cached.humMap && cached.tempMap && cached.windMap && Date.now() - cached.omFetchedAt < 3600000);
       // ウェザーニュースのCDNキャッシュ（ページは最大10分）も避けるため、取得ごとに変わる目印をURLへ付ける
       const bust = `&_wn=${Date.now()}`;
       const [mrfRes, pageRes, omRes] = await Promise.all([
@@ -1334,6 +1348,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         humMap: omFresh ? cached.humMap : (omRes ? parseOmHum(omRes) : ((cached && cached.humMap) || {})), // 湿度も降水確率と同じ扱い（体感補正用）
         tempMap: omFresh ? cached.tempMap : (omRes ? parseOmTemp(omRes) : ((cached && cached.tempMap) || {})), // 気温も同じ扱い（6時間区切りポップアップ用）
         windMap: omFresh ? cached.windMap : (omRes ? parseOmWindH(omRes) : ((cached && cached.windMap) || {})), // 風速も同じ扱い（6時間区切りポップアップ用）
+        precipMap: omFresh ? cached.precipMap : (omRes ? parseOmPrecip(omRes) : ((cached && cached.precipMap) || {})), // 降水量も同じ扱い（雨量の色判定用）
         omWind: omFresh ? cached.omWind : (omRes ? parseOmWind(omRes) : ((cached && cached.omWind) || {})),
         omFetchedAt: omFresh ? cached.omFetchedAt : (omRes ? Date.now() : (cached ? cached.omFetchedAt : 0)),
         fetchedAt: Date.now()
@@ -1571,16 +1586,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const rows = (lastData.hourly || []).filter(r => sameDay(r.date, dayDate));
     if (!rows.length) { body.innerHTML = '<tr><td colspan="8" class="note">1時間予報を取得できませんでした。</td></tr>'; return; }
     const popMap = lastData.popMap || {};
+    const precipMap = lastData.precipMap || {};
     const sun = sunRange(e.mrf);
     const nowHour = currentDay === 'today' ? jstNow().getUTCHours() : -1;
     let html = '';
     rows.forEach(r => {
       const fl = r.temp != null ? feelsLike(r.temp, r.windSpd, r.wx, r.time, sun, r.hum) : null;
       const pop = popMap[omKey(r.date, r.time)];
+      const prc = precipMap[omKey(r.date, r.time)];
       const cls = r.time === nowHour ? ' class="nowrow"' : (nowHour >= 0 && r.time < nowHour ? ' class="past"' : '');
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
-      const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40)) ? 'rn' : 'rz';
+      const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40 && prc != null && prc >= 0.5)) ? 'rn' : 'rz';
       html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
     });
     body.innerHTML = html;
