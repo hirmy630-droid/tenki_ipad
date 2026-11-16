@@ -53,6 +53,7 @@
   .nw-e { font-size: 26px; line-height: 1; }
   .nw-v { font-size: 18px; font-weight: 700; }
   .nw-row:first-child .nw-v { font-size: 22px; font-weight: 800; }
+  .nw-feels { color: #ff9f0a; }
   .day-title { font-size: 17px; font-weight: 700; color: #374151; text-align: center; line-height: 24px; margin-bottom: 4px; }
   .wx-emoji { font-size: 46px; text-align: center; line-height: 1.15; }
   .wx-text { font-size: 25px; font-weight: 800; text-align: center; margin: 2px 0 4px; }
@@ -346,9 +347,10 @@
       <section class="card" id="wxCard">
         <div class="now-strip">
           <div class="nw-row">
-            <span class="nw-k">現在の天気</span>
+            <span class="nw-k">現在天気</span>
             <span class="nw-e" id="nowWx">--</span>
             <span class="nw-v" id="nowTemp">--℃</span>
+            <span class="nw-v nw-feels" id="nowFeels" style="display:none"></span>
           </div>
           <div class="nw-row">
             <span class="nw-v" id="nowRain">降水量 --ミリ</span>
@@ -1454,6 +1456,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       row = rows.find(r => r.time === hour) || rows.filter(r => r.time <= hour).pop() || rows[0] || null;
     }
     const obs = lastData.obs;
+    const sunM = e ? sunRange(e.mrf) : null;
+    const setFeels = (f) => {
+      const el = $('nowFeels');
+      if (!el) return;
+      if (f != null) { el.textContent = `${f}℃`; el.style.display = ''; }
+      else { el.textContent = ''; el.style.display = 'none'; }
+    };
     if (obs && obs.temp != null) {
       // 現在の天気は実況（観測値）で表示する
       $('nowWx').textContent = wxEmoji(obs.wx != null ? obs.wx : (row ? row.wx : null));
@@ -1461,11 +1470,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       $('nowRain').textContent = `降水量 ${row && row.rainMm != null ? row.rainMm : 0}ミリ`;
       const oIcon = obs.windIcon ? `<img class="wicon" src="${obs.windIcon}" alt="" onerror="this.remove()">` : '';
       $('nowWind').innerHTML = `風速 ${oIcon}${obs.windSpd != null ? obs.windSpd : '--'}m/s`;
+      setFeels(feelsLike(obs.temp, obs.windSpd, obs.wx != null ? obs.wx : (row ? row.wx : null), row ? row.time : jstNow().getUTCHours(), sunM, row ? row.hum : undefined));
       return;
     }
     if (!row) return;
     $('nowWx').textContent = wxEmoji(row.wx);
     $('nowTemp').textContent = row.temp != null ? `${row.temp}℃` : '--℃';
+    setFeels(feelsLike(row.temp, row.windSpd, row.wx, row.time, sunM, row.hum));
     $('nowRain').textContent = `降水量 ${row.rainMm != null ? row.rainMm : 0}ミリ`;
     const nDeg = windToDeg(row.windDir);
     const nArrow = nDeg != null && row.windSpd > 0 ? `<span class="wdir" style="transform:rotate(${nDeg}deg)">↑</span>` : '';
