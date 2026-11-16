@@ -53,7 +53,9 @@
   .nw-e { font-size: 26px; line-height: 1; }
   .nw-v { font-size: 18px; font-weight: 700; }
   .nw-row:first-child .nw-v { font-size: 22px; font-weight: 800; }
+  .nw-row:first-child .nw-feels { font-size: 19px; }
   .nw-feels { color: #ff9f0a; }
+  .nw-row #nowTemp, .nw-row .nw-feels { align-self: baseline; }
   .day-title { font-size: 17px; font-weight: 700; color: #374151; text-align: center; line-height: 24px; margin-bottom: 4px; }
   .wx-emoji { font-size: 46px; text-align: center; line-height: 1.15; }
   .wx-text { font-size: 25px; font-weight: 800; text-align: center; margin: 2px 0 4px; }
@@ -217,6 +219,7 @@
     .nw-k { font-size: 15px; }
     .nw-v { font-size: 16px; }
     .nw-row:first-child .nw-v { font-size: 20px; }
+    .nw-row:first-child .nw-feels { font-size: 17px; }
     .nw-e { font-size: 24px; }
     .day-title { font-size: 16px; line-height: 24px; margin-bottom: 4px; }
     .wx-emoji { font-size: 30px; }
@@ -373,6 +376,12 @@
         </div>
       </section>
 
+      <!-- つぎの雨予報 -->
+      <section class="card">
+        <h2 class="nr-title">🌧️ つぎの雨予報</h2>
+        <div class="nextrain" id="nextRain"><p class="note">予報を取得すると表示します。</p></div>
+      </section>
+
       <!-- 服装 -->
       <section class="card outfit">
         <h2 class="of-title" id="clothesTitle">👕 今日の服装</h2>
@@ -391,12 +400,6 @@
     </div>
 
     <div class="col-right">
-      <!-- つぎの雨予報 -->
-      <section class="card">
-        <h2 class="nr-title">🌧️ つぎの雨予報</h2>
-        <div class="nextrain" id="nextRain"><p class="note">予報を取得すると表示します。</p></div>
-      </section>
-
       <!-- 1時間毎の予報 -->
       <section class="card hourly-card">
         <h2 class="panel-title">🕐 1時間毎の予報</h2>
