@@ -489,37 +489,83 @@ function parseOmPop(json) {
 }
 
 // Open-Meteo の1時間降水確率を、ウェザーニュースの降水確率に合わせて補正する。
+// 形付け：確率に降水量の大小を少し混ぜ（×0.8〜1.0）、範囲内で雨量の多い時間を相対的に高くする。
+//   雨量はウェザーニュースの1時間降水量を優先し、届かない範囲は Open-Meteo の降水量で代用する（popShapeRain）。
+//   範囲内の雨量が全て0／無い場合は形付けしない。
 // 今日・明日（午前/午後の確率がある日）：午前（0-11時）・午後（12-23時）のブロックごとに、
-//   ブロック内の最大値がウェザーニュースの午前/午後の確率と一致するよう、比率を保って調整する。
-// それ以外の日（1日の確率のみ）：ブロックの最大値が1日の確率を超える場合だけ、比率を保って下げる。
-// Open-Meteo の値がそのブロック全て0の場合は、時間配分が分からないため補正しない（0のまま）。
+//   形付け後の最大値がウェザーニュースの午前/午後の確率と一致するよう調整する。
+//   片方の確率が無いブロックは、従来通り1日の確率を超えないよう下げるだけにする。
+// 明後日以降（1日の確率のみ）：形付け後の上位3時間の平均が1日の確率と一致するよう、1日を通して調整する。
+// 引き上げ（拡大）の倍率は1.5倍まで。午前/午後ブロックでは生の確率が10%未満の時間は引き上げない
+//   （小さい値の増幅防止。そのため、大きく食い違うブロックでは最大値が目標に届かないことがある）。
+//   1日単位の調整では10%未満の据え置きはしない（対象の時間がほぼ全て該当し、調整自体が無効になるため）。
+// Open-Meteo の値がその範囲全て0の場合は、時間配分が分からないため補正しない（0のまま）。
 // targets: { 'YYYY-MM-DD': { am: 数値|null, pm: 数値|null, day: 数値|null } }
-function correctPopMap(rawPop, targets) {
+// shapeRain: { 'YYYY-MM-DDTHH': 雨量mm }（形付け用）
+function correctPopMap(rawPop, targets, shapeRain) {
   const out = Object.assign({}, rawPop || {});
   if (!rawPop || !targets) return out;
+  const key = (dstr, h) => `${dstr}T${String(h).padStart(2, '0')}`;
+  // [from, to] の範囲について、形付け後の値の並びを返す（確率が無い時間は null）
+  const shapedRange = (dstr, from, to) => {
+    let maxRain = null;
+    for (let h = from; h <= to; h++) {
+      const r = shapeRain ? shapeRain[key(dstr, h)] : null;
+      if (r != null && (maxRain === null || r > maxRain)) maxRain = r;
+    }
+    const arr = [];
+    for (let h = from; h <= to; h++) {
+      const v = rawPop[key(dstr, h)];
+      if (v == null) { arr.push(null); continue; }
+      const r = shapeRain ? shapeRain[key(dstr, h)] : null;
+      arr.push(r != null && maxRain > 0 ? v * (0.8 + 0.2 * (r / maxRain)) : v);
+    }
+    return arr;
+  };
+  // 形付け後の並びを、anchorOf（代表値）が target と一致するよう倍率を決めて out へ書き込む
+  const applyScale = (dstr, from, shaped, target, anchorOf, exemptLow) => {
+    const vals = shaped.filter(v => v != null);
+    if (!vals.length) return;
+    const anchor = anchorOf(vals);
+    if (anchor === null || anchor === 0) return; // 全て0の範囲は形が分からないため触らない
+    let f = target / anchor;
+    const lifting = f > 1;
+    if (lifting) f = Math.min(f, 1.5); // 引き上げは1.5倍まで
+    for (let i = 0; i < shaped.length; i++) {
+      if (shaped[i] == null) continue;
+      if (lifting && exemptLow && rawPop[key(dstr, from + i)] < 10) continue; // 生の確率が10%未満の時間は持ち上げない
+      out[key(dstr, from + i)] = Math.max(0, Math.min(100, Math.round(shaped[i] * f)));
+    }
+  };
   Object.keys(targets).forEach(dstr => {
     const t = targets[dstr] || {};
-    const halves = [
-      { from: 0, to: 11, val: t.am },
-      { from: 12, to: 23, val: t.pm }
-    ];
-    halves.forEach(hf => {
-      const isMatch = hf.val != null;
-      const target = isMatch ? hf.val : t.day;
-      if (target == null) return;
-      let omMax = null;
-      for (let h = hf.from; h <= hf.to; h++) {
-        const v = rawPop[`${dstr}T${String(h).padStart(2, '0')}`];
-        if (v != null && (omMax === null || v > omMax)) omMax = v;
-      }
-      if (omMax === null || omMax === 0) return; // 値が無い／全て0のブロックは形が分からないため触らない
-      if (!isMatch && omMax <= target) return; // 1日確率のみの日は下げるだけ
-      const f = target / omMax;
-      for (let h = hf.from; h <= hf.to; h++) {
-        const k = `${dstr}T${String(h).padStart(2, '0')}`;
-        if (rawPop[k] != null) out[k] = Math.max(0, Math.min(100, Math.round(rawPop[k] * f)));
-      }
-    });
+    if (t.am != null || t.pm != null) {
+      [{ from: 0, to: 11, val: t.am }, { from: 12, to: 23, val: t.pm }].forEach(hf => {
+        const target = hf.val != null ? hf.val : t.day;
+        if (target == null) return;
+        const shaped = shapedRange(dstr, hf.from, hf.to);
+        if (hf.val == null) {
+          // 片方の確率が無いブロックは1日の確率で抑えるだけ（引き上げない）
+          const vals = shaped.filter(v => v != null);
+          if (!vals.length) return;
+          const mx = Math.max.apply(null, vals);
+          if (mx === 0 || mx <= target) return;
+          const f = target / mx;
+          for (let i = 0; i < shaped.length; i++) {
+            if (shaped[i] != null) out[key(dstr, hf.from + i)] = Math.max(0, Math.min(100, Math.round(shaped[i] * f)));
+          }
+          return;
+        }
+        applyScale(dstr, hf.from, shaped, target, vals => Math.max.apply(null, vals), true);
+      });
+    } else if (t.day != null) {
+      // 明後日以降：上位3時間の平均を1日の確率へ合わせる
+      const shaped = shapedRange(dstr, 0, 23);
+      applyScale(dstr, 0, shaped, t.day, vals => {
+        const top = vals.slice().sort((a, b) => b - a).slice(0, 3);
+        return top.reduce((s, v) => s + v, 0) / top.length;
+      }, false);
+    }
   });
   return out;
 }
@@ -548,6 +594,15 @@ function popTargets(data) {
     else if (targets[k].day == null) targets[k].day = w.rainVal;
   });
   return targets;
+}
+
+// 形付けに使う雨量マップ：ウェザーニュースの1時間降水量がある時間はそれを使い、無い時間は Open-Meteo の降水量で代用する
+function popShapeRain(data) {
+  const map = Object.assign({}, (data && data.precipMap) || {});
+  ((data && data.hourly) || []).forEach(r => {
+    if (r && r.date && r.rainMm != null) map[omKey(r.date, r.time)] = r.rainMm;
+  });
+  return map;
 }
 
 // Open-Meteo: 1時間ごとの降水量（mm）を {"2026-11-12T09": 0.8} のマップにする（雨量の色判定用）
@@ -1424,7 +1479,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       };
       // 降水確率を補正する（生値は popMapRaw に保持し、表示・判定には補正後の popMap を使う）
       data.popMapRaw = rawPop;
-      data.popMap = correctPopMap(rawPop, popTargets(data));
+      data.popMap = correctPopMap(rawPop, popTargets(data), popShapeRain(data));
       // 湿度を各時間の行へ付ける（体感温度の湿度補正で使う。キャッシュにもそのまま残る）
       data.hourly.forEach(r => { const h = data.humMap[omKey(r.date, r.time)]; if (h != null) r.hum = h; });
       // 構造変更などで中身が読めていない場合は失敗扱いにし、前回データを壊さない
@@ -1839,7 +1894,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
