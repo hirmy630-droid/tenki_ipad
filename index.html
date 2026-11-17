@@ -330,7 +330,7 @@
     <div class="h-left">
       <h1>☀️ 天気予報 <span class="h-sub">KYOWA ROOF</span></h1>
       <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
-      <a class="btn-radar" id="radarBtn" href="https://www.jma.go.jp/bosai/nowc/" target="_blank" rel="noopener noreferrer">🌧️ レーダー</a>
+      <a class="btn-radar" id="radarBtn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer">🌧️ レーダー</a>
       <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
       <p class="status-line" id="fetchStatus"></p>
     </div>
@@ -1343,7 +1343,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     el.className = 'status-line' + (isErr ? ' err' : '');
   }
 
-  function openModal(id) { $(id).classList.remove('hidden'); }
+  function openModal(id) {
+    const ov = $(id);
+    ov.classList.remove('hidden');
+    // 開くたびにスクロールを一番上に戻す（前回閉じたときの位置は残さない。iPad版は .sheet 自体がスクロールする）
+    const sc = ov.querySelector('.sheet-body') || ov.querySelector('.sheet');
+    if (sc) sc.scrollTop = 0;
+  }
   function closeModal(id) {
     $(id).classList.add('hidden');
     // レーダーは閉じたら中身を破棄してメモリを空ける（次回開くときに最新を読み直す）
@@ -1830,14 +1836,14 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     openModal('dayModal');
   }
 
-  // 雨雲レーダー（選択中の地点の地図をポップアップ表示）
-  // レーダー：気象庁「雨雲の動き」を別画面で開く（リンク方式）。
+  // 雨雲レーダー（選択中の地点を中心に別画面で開く）
+  // レーダー：Yahoo!天気の雨雲レーダーを別画面で開く（リンク方式）。
   // クリックのたびに、選択中の地点でリンク先を書き換える。
   function updateRadarHref() {
     const loc = selectedLoc();
     const a = $('radarBtn');
     if (!loc || !a) return;
-    a.href = `https://www.jma.go.jp/bosai/nowc/#lat:${Number(loc.lat).toFixed(5)}/lon:${Number(loc.lon).toFixed(5)}/zoom:10/colordepth:normal/elements:hrpns`;
+    a.href = `https://weather.yahoo.co.jp/weather/zoomradar/?lat=${loc.lat}&lon=${loc.lon}&z=10`;
   }
 
   function setDay(day) {
