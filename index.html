@@ -488,6 +488,68 @@ function parseOmPop(json) {
   return out;
 }
 
+// Open-Meteo の1時間降水確率を、ウェザーニュースの降水確率に合わせて補正する。
+// 今日・明日（午前/午後の確率がある日）：午前（0-11時）・午後（12-23時）のブロックごとに、
+//   ブロック内の最大値がウェザーニュースの午前/午後の確率と一致するよう、比率を保って調整する。
+// それ以外の日（1日の確率のみ）：ブロックの最大値が1日の確率を超える場合だけ、比率を保って下げる。
+// Open-Meteo の値がそのブロック全て0の場合は、時間配分が分からないため補正しない（0のまま）。
+// targets: { 'YYYY-MM-DD': { am: 数値|null, pm: 数値|null, day: 数値|null } }
+function correctPopMap(rawPop, targets) {
+  const out = Object.assign({}, rawPop || {});
+  if (!rawPop || !targets) return out;
+  Object.keys(targets).forEach(dstr => {
+    const t = targets[dstr] || {};
+    const halves = [
+      { from: 0, to: 11, val: t.am },
+      { from: 12, to: 23, val: t.pm }
+    ];
+    halves.forEach(hf => {
+      const isMatch = hf.val != null;
+      const target = isMatch ? hf.val : t.day;
+      if (target == null) return;
+      let omMax = null;
+      for (let h = hf.from; h <= hf.to; h++) {
+        const v = rawPop[`${dstr}T${String(h).padStart(2, '0')}`];
+        if (v != null && (omMax === null || v > omMax)) omMax = v;
+      }
+      if (omMax === null || omMax === 0) return; // 値が無い／全て0のブロックは形が分からないため触らない
+      if (!isMatch && omMax <= target) return; // 1日確率のみの日は下げるだけ
+      const f = target / omMax;
+      for (let h = hf.from; h <= hf.to; h++) {
+        const k = `${dstr}T${String(h).padStart(2, '0')}`;
+        if (rawPop[k] != null) out[k] = Math.max(0, Math.min(100, Math.round(rawPop[k] * f)));
+      }
+    });
+  });
+  return out;
+}
+
+// 補正の目標値（ウェザーニュース側の確率）を日付ごとに組み立てる
+// 今日・明日：日別カードの午前/午後確率（1日確率は日別JSONの値）
+// 週間予報の日：1日の確率（％表示の日のみ）
+function popTargets(data) {
+  const targets = {};
+  const p2 = n => String(n).padStart(2, '0');
+  ((data && data.mrf) || []).forEach((m, i) => {
+    const d = dateFromMrfTm(m.tm);
+    const card = data.cards ? data.cards[i === 0 ? 'today' : 'tomorrow'] : null;
+    targets[`${d.y}-${p2(d.mo)}-${p2(d.d)}`] = {
+      am: card && card.popAm != null ? card.popAm : null,
+      pm: card && card.popPm != null ? card.popPm : null,
+      day: m.POP != null ? m.POP : null
+    };
+  });
+  const jn = jstNow();
+  ((data && data.week) || []).forEach((w, i) => {
+    if (w.rainUnit !== '%' || w.rainVal == null) return;
+    const base = new Date(Date.UTC(jn.getUTCFullYear(), jn.getUTCMonth(), jn.getUTCDate() + i));
+    const k = `${base.getUTCFullYear()}-${p2(base.getUTCMonth() + 1)}-${p2(base.getUTCDate())}`;
+    if (!targets[k]) targets[k] = { am: null, pm: null, day: w.rainVal };
+    else if (targets[k].day == null) targets[k].day = w.rainVal;
+  });
+  return targets;
+}
+
 // Open-Meteo: 1時間ごとの降水量（mm）を {"2026-11-12T09": 0.8} のマップにする（雨量の色判定用）
 function parseOmPrecip(json) {
   const out = {};
@@ -1342,6 +1404,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         fetchT(WN_PAGE_URL(loc.lat, loc.lon) + bust, 20000).then(r => { if (!r.ok) throw new Error('page'); return r.text(); }),
         omFresh ? Promise.resolve(null) : fetchT(OM_URL(loc.lat, loc.lon), 15000).then(r => { if (!r.ok) throw new Error('om'); return r.json(); }).catch(() => null)
       ]);
+      // 降水確率の生値（Open-Meteo）。取得失敗時は前回の生値を保持する。表示用 popMap は直後に補正して作る
+      const rawPop = omRes ? parseOmPop(omRes) : ((cached && (cached.popMapRaw || cached.popMap)) || {});
       const data = {
         mrf: mrfRes.mrf || [],
         cards: parseDayCards(pageRes),
@@ -1349,7 +1413,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         week: parseWeek(pageRes),
         placeName: parsePlaceName(pageRes),
         obs: parseObserved(pageRes),
-        popMap: omFresh ? cached.popMap : (omRes ? parseOmPop(omRes) : ((cached && cached.popMap) || {})), // 取得失敗時は前回の降水確率を保持する
+        popMap: rawPop, // 直後にウェザーニュースの確率へ合わせて補正した値へ差し替える（生値は popMapRaw）
         humMap: omFresh ? cached.humMap : (omRes ? parseOmHum(omRes) : ((cached && cached.humMap) || {})), // 湿度も降水確率と同じ扱い（体感補正用）
         tempMap: omFresh ? cached.tempMap : (omRes ? parseOmTemp(omRes) : ((cached && cached.tempMap) || {})), // 気温も同じ扱い（6時間区切りポップアップ用）
         windMap: omFresh ? cached.windMap : (omRes ? parseOmWindH(omRes) : ((cached && cached.windMap) || {})), // 風速も同じ扱い（6時間区切りポップアップ用）
@@ -1358,6 +1422,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         omFetchedAt: omFresh ? cached.omFetchedAt : (omRes ? Date.now() : (cached ? cached.omFetchedAt : 0)),
         fetchedAt: Date.now()
       };
+      // 降水確率を補正する（生値は popMapRaw に保持し、表示・判定には補正後の popMap を使う）
+      data.popMapRaw = rawPop;
+      data.popMap = correctPopMap(rawPop, popTargets(data));
       // 湿度を各時間の行へ付ける（体感温度の湿度補正で使う。キャッシュにもそのまま残る）
       data.hourly.forEach(r => { const h = data.humMap[omKey(r.date, r.time)]; if (h != null) r.hum = h; });
       // 構造変更などで中身が読めていない場合は失敗扱いにし、前回データを壊さない
@@ -1772,7 +1839,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
