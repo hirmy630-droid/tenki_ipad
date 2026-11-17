@@ -69,6 +69,7 @@
   .cell { background: #eef0f4; border: 1px solid #d9dde5; border-radius: 10px; padding: 8px 4px; text-align: center; }
   .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
   .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
+  #wxPrec .hr { font-size: calc(100% - 2px); }
   .cell .v .wdir { display: inline-block; margin-right: 3px; }
   .nw-v .wdir { display: inline-block; margin-right: 2px; }
   .wicon { width: 20px; height: 20px; vertical-align: -5px; margin-right: 2px; }
@@ -371,7 +372,7 @@
         <div class="grid2">
           <div class="cell"><div class="k">降水確率（午前）</div><div class="v" id="wxPopAm">--%</div></div>
           <div class="cell"><div class="k">降水確率（午後）</div><div class="v" id="wxPopPm">--%</div></div>
-          <div class="cell" id="precCell"><div class="k">降水量</div><div class="v" id="wxPrec">--ミリ</div></div>
+          <div class="cell" id="precCell"><div class="k">最大降水量</div><div class="v" id="wxPrec">--ミリ</div></div>
           <div class="cell" id="windCell"><div class="k">風速</div><div class="v" id="wxWind">-- m/s</div></div>
         </div>
       </section>
@@ -1050,6 +1051,16 @@ function dayWindMaxInfo(hourly, dateObj) {
   return { spd: best.windSpd, dir: best.windDir, img: best.windImg || null };
 }
 
+// その日の1時間降水量の最大値とその時刻（同値の場合は最も早い時刻）。データが無ければ null
+function dayRainMax(hourly, dateObj) {
+  if (!hourly || !hourly.length) return null;
+  let max = null;
+  hourly.forEach(r => {
+    if (r.date && sameDay(r.date, dateObj) && r.rainMm != null && (max === null || r.rainMm > max.mm || (r.rainMm === max.mm && r.time < max.hour))) max = { mm: r.rainMm, hour: r.time };
+  });
+  return max;
+}
+
 // 風向コード（風が吹いてくる向き・16方位）→ 風が吹いていく向きの角度（↑を時計回りに回す角度）
 function windToDeg(code) {
   if (!(code >= 1 && code <= 16)) return null;
@@ -1645,7 +1656,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const popPm = card ? card.popPm : null;
     $('wxPopAm').textContent = popAm === null || popAm === undefined ? `${m.POP ?? '--'}%` : `${popAm}%`;
     $('wxPopPm').textContent = popPm === null || popPm === undefined ? `${m.POP ?? '--'}%` : `${popPm}%`;
-    $('wxPrec').textContent = `${m.PREC}ミリ`;
+    // 降水量は、その日の1時間降水量の最大値とその時刻で表示する（雨が無い日は従来通り1日の合計）
+    const rMax = dayRainMax(lastData.hourly, dayDate);
+    $('wxPrec').innerHTML = rMax && rMax.mm > 0 ? `<span class="hr">${rMax.hour}時</span> ${rMax.mm}㎜` : `${m.PREC}ミリ`;
 
     renderNow();
     renderOutfit();
@@ -1894,7 +1907,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
