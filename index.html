@@ -924,6 +924,32 @@ function parseWeek(html) {
 }
 
 // 実況（観測値）: section#todayDetails から天気コード・気温・湿度・気圧・風速・風アイコンを取得
+// 実況の時間別観測表（ページ内の obs_data_table_body）から、時間ごとの降水量（mm/h）を読む。
+// 戻り値: { map: { '日T時': mm }, latest: 最も新しい観測時間の降水量 }。表が無ければ null
+function parseObsPrec(html) {
+  const bi = html.indexOf('obs_data_table_body');
+  if (bi < 0) return null;
+  const ei = html.indexOf('</section>', bi);
+  const seg = html.slice(bi, ei > bi ? ei : bi + 250000);
+  const map = {};
+  let latest = null;
+  seg.split('data-table__day').slice(1).forEach(db => {
+    const dm = db.match(/<p>(\d+)日/);
+    if (!dm) return;
+    const day = Number(dm[1]);
+    db.split('data-table__hour').slice(1).forEach(hb => {
+      const t = hb.match(/data-content="time"[\s\S]*?<p>(\d+)<\/p>/);
+      const p = hb.match(/data-content="prec"[\s\S]*?<p>([^<]*)<\/p>/);
+      if (!t || !p) return;
+      const v = Number(p[1]);
+      if (!Number.isFinite(v)) return;
+      map[`${day}T${Number(t[1])}`] = v;
+      latest = v;
+    });
+  });
+  return latest === null ? null : { map, latest };
+}
+
 function parseObserved(html) {
   const segM = html.match(/<section id="todayDetails"[\s\S]*?<\/section>/);
   if (!segM) return null;
@@ -934,13 +960,16 @@ function parseObserved(html) {
     return b ? Number(b[1]) : null;
   };
   const windB = seg.match(/<p class="title">風<\/p>[\s\S]*?<img src="([^"]+)"/);
+  const prec = parseObsPrec(html);
   return {
     wx: wx ? Number(wx[1]) : null,
     temp: val('気温'),
     humidity: val('湿度'),
     pressure: val('気圧'),
     windSpd: val('風'),
-    windIcon: windB ? windB[1] : null
+    windIcon: windB ? windB[1] : null,
+    precMap: prec ? prec.map : null,
+    precLatest: prec ? prec.latest : null
   };
 }
 
@@ -1053,11 +1082,15 @@ function dayWindMaxInfo(hourly, dateObj) {
 }
 
 // その日の1時間降水量の最大値とその時刻（同値の場合は最も早い時刻）。データが無ければ null
-function dayRainMax(hourly, dateObj) {
+// obsPrec（'日T時' → 実況の降水量）が渡された場合は、その時間の判定に実況の値を使う（今日の過ぎた時間用）
+function dayRainMax(hourly, dateObj, obsPrec) {
   if (!hourly || !hourly.length) return null;
   let max = null;
   hourly.forEach(r => {
-    if (r.date && sameDay(r.date, dateObj) && r.rainMm != null && (max === null || r.rainMm > max.mm || (r.rainMm === max.mm && r.time < max.hour))) max = { mm: r.rainMm, hour: r.time };
+    if (!r.date || !sameDay(r.date, dateObj)) return;
+    const ov = obsPrec ? obsPrec[`${r.date.getDate()}T${r.time}`] : null;
+    const mm = ov != null ? ov : r.rainMm;
+    if (mm != null && (max === null || mm > max.mm || (mm === max.mm && r.time < max.hour))) max = { mm, hour: r.time };
   });
   return max;
 }
@@ -1589,7 +1622,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // 現在の天気（今日の1時間予報から、現在時刻の行を表示）
   function renderNow() {
     if (!lastData) return;
-    // 降水量は実況に無いため、予報の現在時刻の行から取る
+    // 降水量は実況の観測表（最新の観測時間の値）から取る。取れない場合は予報の現在時刻の行で代替する
     const e = dayEntry(0);
     let row = null;
     if (e && lastData.hourly) {
@@ -1610,7 +1643,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       // 現在の天気は実況（観測値）で表示する
       $('nowWx').textContent = wxEmoji(obs.wx != null ? obs.wx : (row ? row.wx : null));
       $('nowTemp').textContent = `${obs.temp}℃`;
-      $('nowRain').textContent = `降水量 ${row && row.rainMm != null ? row.rainMm : 0}ミリ`;
+      $('nowRain').textContent = `降水量 ${obs.precLatest != null ? obs.precLatest : (row && row.rainMm != null ? row.rainMm : 0)}ミリ`;
       const oIcon = obs.windIcon ? `<img class="wicon" src="${obs.windIcon}" alt="" onerror="this.remove()">` : '';
       $('nowWind').innerHTML = `風速 ${oIcon}${obs.windSpd != null ? obs.windSpd : '--'}m/s`;
       setFeels(feelsLike(obs.temp, obs.windSpd, obs.wx != null ? obs.wx : (row ? row.wx : null), row ? row.time : jstNow().getUTCHours(), sunM, row ? row.hum : undefined));
@@ -1664,7 +1697,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('wxPopAm').textContent = popAm === null || popAm === undefined ? `${m.POP ?? '--'}%` : `${popAm}%`;
     $('wxPopPm').textContent = popPm === null || popPm === undefined ? `${m.POP ?? '--'}%` : `${popPm}%`;
     // 降水量は、その日の1時間降水量の最大値とその時刻で表示する（雨が無い日は従来通り1日の合計）
-    const rMax = dayRainMax(lastData.hourly, dayDate);
+    // 今日は、過ぎた時間の判定に実況の降水量を使う
+    const rMax = dayRainMax(lastData.hourly, dayDate, offset === 0 && lastData.obs ? lastData.obs.precMap : null);
     $('wxPrec').innerHTML = rMax && rMax.mm > 0 ? `<span class="hr">${rMax.hour}時</span> ${rMax.mm}㎜` : `${m.PREC}ミリ`;
 
     renderNow();
