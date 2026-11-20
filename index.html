@@ -433,7 +433,8 @@
       <input type="text" id="locAddr" placeholder="市区町村・都道府県（例: 東京都中央区）">
       <button type="button" class="btn btn-blue" id="addLocBtn">保存</button>
     </div>
-    <button type="button" class="btn btn-gray" id="geoBtn">📍 現在地を取得・再取得</button>
+    <button type="button" class="btn btn-gray" id="geoAddrBtn">現在地の住所を入れる</button>
+    <button type="button" class="btn btn-gray" id="geoBtn">📍 現在地</button>
     <div class="loc-list" id="locList"></div>
     <p class="status-line" id="locStatus" style="margin-top:8px; text-align:left;"></p>
     <div class="theme-row">
@@ -1247,6 +1248,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
   function loadLocations() {
     try { locations = JSON.parse(localStorage.getItem(LS_LOC) || '[]'); } catch (e) { locations = []; }
+    // 旧版で登録した「現在地」は、自動更新の対象として引き継ぐ
+    locations.forEach(l => { if (l.gps === undefined && l.name === '現在地') l.gps = true; });
     if (!locations.length) {
       locations = [{ id: 'default-chuo', name: '東京都中央区（サンプル）', addr: '東京都中央区', lat: 35.6706, lon: 139.7720 }];
       saveLocations();
@@ -1299,7 +1302,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   function renderLocBtn() {
     const loc = selectedLoc();
     // 登録名があれば名前を優先表示（無ければウェザーニュースの地点名、それも無ければ住所）
-    $('locBtnLabel').textContent = loc ? (loc.name || (lastData && lastData.placeName) || loc.addr) : '場所を登録してください';
+    let label = loc ? (loc.name || (lastData && lastData.placeName) || loc.addr) : '場所を登録してください';
+    // 現在地（自動更新）は、今いる場所の住所も添える
+    if (loc && loc.gps && loc.addr && !loc.addr.startsWith('緯度')) label += `（${loc.addr}）`;
+    $('locBtnLabel').textContent = label;
   }
 
   async function geocode(addr) {
@@ -1355,13 +1361,38 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const lon = Math.round(pos.coords.longitude * 10000) / 10000;
       setLocStatus('住所に変換中…');
       const addr = await reverseGeocode(lat, lon);
-      const loc = { id: 'loc' + Date.now(), name: '現在地', addr: addr || `緯度${lat} 経度${lon}`, lat, lon };
-      locations.unshift(loc);
-      selectedId = loc.id;
-      saveLocations(); renderLocations(); renderLocBtn();
-      setLocStatus('現在地を追加しました');
+      // 既に「現在地」があれば追加せず、その1件を今の場所に更新する（押すたびに増やさない）
+      const existing = locations.find(l => l.gps && l.name === '現在地');
+      if (existing) {
+        existing.lat = lat; existing.lon = lon;
+        if (addr) existing.addr = addr;
+        selectedId = existing.id;
+        saveLocations(); renderLocations(); renderLocBtn();
+        setLocStatus('現在地を更新しました');
+      } else {
+        const loc = { id: 'loc' + Date.now(), name: '現在地', gps: true, addr: addr || `緯度${lat} 経度${lon}`, lat, lon };
+        locations.unshift(loc);
+        selectedId = loc.id;
+        saveLocations(); renderLocations(); renderLocBtn();
+        setLocStatus('現在地を追加しました');
+      }
       closeModal('locModal');
       refresh(false);
+    }, () => setLocStatus('現在地を取得できませんでした', true), { timeout: 15000 });
+  }
+
+  // 今いる場所の住所を住所欄へ入れる（固定の地点として登録したいとき用。その場では登録しない）
+  function fillAddrFromCurrentLocation() {
+    if (!navigator.geolocation) { setLocStatus('現在地取得に対応していません', true); return; }
+    setLocStatus('現在地を取得中…');
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      const lat = Math.round(pos.coords.latitude * 10000) / 10000;
+      const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+      setLocStatus('住所に変換中…');
+      const addr = await reverseGeocode(lat, lon);
+      if (!addr) { setLocStatus('住所が取得できませんでした', true); return; }
+      $('locAddr').value = addr;
+      setLocStatus('住所を入れました。名前を付けて「保存」を押してください');
     }, () => setLocStatus('現在地を取得できませんでした', true), { timeout: 15000 });
   }
 
@@ -1494,9 +1525,28 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   }
 
 
+  // 現在地（自動更新）の座標を、更新のたびに取り直す。取れなければ前回の座標のまま進める（エラーにしない）
+  function updateGpsLoc(loc) {
+    return new Promise(resolve => {
+      if (!navigator.geolocation) return resolve();
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = Math.round(pos.coords.latitude * 10000) / 10000;
+        const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+        if (lat !== loc.lat || lon !== loc.lon) {
+          loc.lat = lat; loc.lon = lon;
+          const addr = await reverseGeocode(lat, lon);
+          if (addr) loc.addr = addr;
+          saveLocations(); renderLocations(); renderLocBtn();
+        }
+        resolve();
+      }, () => resolve(), { timeout: 10000, maximumAge: 300000 });
+    });
+  }
+
   async function refresh(useCacheFirst) {
     const loc = selectedLoc();
     if (!loc) { setStatus('地点が登録されていません', true); return; }
+    if (loc.gps) await updateGpsLoc(loc);
     const cached = loadCache(loc);
     if (useCacheFirst && cached) { lastData = cached; render(); }
     setStatus('予報を取得中…');
@@ -1920,6 +1970,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('addLocBtn').addEventListener('click', addLocation);
     $('locAddr').addEventListener('keydown', (e) => { if (e.key === 'Enter') addLocation(); });
     $('geoBtn').addEventListener('click', useCurrentLocation);
+    $('geoAddrBtn').addEventListener('click', fillAddrFromCurrentLocation);
     applyTheme(document.body.classList.contains('dark'));
     $('themeToggleBtn').addEventListener('click', () => {
       const dark = !document.body.classList.contains('dark');
