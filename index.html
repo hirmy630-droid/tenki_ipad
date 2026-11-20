@@ -1112,11 +1112,21 @@ function daytimeWindAvg(hourly, dateObj) {
 }
 /* ---------- 夜間モード（日没〜0時まで） ---------- */
 // 現在時刻（JST）がその日の日没後なら、夜間の対象時間帯 {from, to}（時）を返す。それ以外（0時〜日の出前を含む）は null
-//   0時を過ぎたら通常（日中平均）に戻す：翌朝の出勤時の服装判定が見えるようにするため（hirmy の仕様変更 2026-11-14）
+//   服装判定はこちらを使う：0時を過ぎたら日中平均に戻す。当日の日中の服装判定が朝まで見えるようにするため（hirmy の仕様 2026-11-14、2026-11-21 再確認）
 function nightPeriod(sun, nowJst) {
   if (!sun || !nowJst) return null;
   const mins = nowJst.getUTCHours() * 60 + nowJst.getUTCMinutes();
   if (mins >= sun.set) return { from: Math.floor(sun.set / 60), to: 23 };
+  return null;
+}
+// メインの体感表示専用：ウィジェットと同じく日の出まで夜間にする（2026-11-21 hirmy 指示）
+//   日没〜0時は nightPeriod と同じ。0時〜日の出は夜明け前平均 {from: 0, to: 日の出の時}。服装判定には使わない
+function displayNightPeriod(sun, nowJst) {
+  const np = nightPeriod(sun, nowJst);
+  if (np) return np;
+  if (!sun || !nowJst) return null;
+  const mins = nowJst.getUTCHours() * 60 + nowJst.getUTCMinutes();
+  if (mins < sun.rise) return { from: 0, to: Math.floor(sun.rise / 60) };
   return null;
 }
 // 指定時間帯の体感温度の平均（daytimeFeelsAvg の時間帯版）。取れない場合はその日の全時間で代替
@@ -1730,7 +1740,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let fAvg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sunM);
     let feelLbl = '🌡️ 体感温度（日中平均）';
     if (offset === 0) {
-      const np = nightPeriod(sunM, jstNow());
+      const np = displayNightPeriod(sunM, jstNow());
       if (np) { fAvg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sunM); feelLbl = '🌡️ 体感温度（夜間平均）'; }
     }
     $('feelAvgLabel').textContent = feelLbl;
@@ -1999,7 +2009,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
