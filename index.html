@@ -19,8 +19,9 @@
 
   /* ヘッダー */
   header { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-  .h-left { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
-  .h-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .h-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .btn-row-btw { display: flex; gap: 10px; }
+  .btn-row-btw .btn-radar, .btn-row-btw .btn-refresh { flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; }
   h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: .02em; }
   h1 .h-sub { font-size: 14px; font-weight: 700; color: #4b5563; background: #dde1e8; border-radius: 6px; padding: 3px 8px; vertical-align: 3px; }
   .btn-loc { width: auto; max-width: 360px; height: 42px; min-height: 42px; padding: 0 18px; background: #fff; border: 1px solid #bfc5cf; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -58,7 +59,7 @@
   .nw-row:first-child .nw-feels { font-size: 19px; }
   .nw-feels { color: #ff9f0a; }
   .nw-row #nowTemp, .nw-row .nw-feels { align-self: baseline; }
-  .day-title { font-size: 17px; font-weight: 700; color: #374151; text-align: center; line-height: 24px; margin-bottom: 4px; }
+  .day-title { font-size: 21px; font-weight: 700; color: #374151; text-align: center; line-height: 28px; margin-bottom: 4px; }
   .wx-emoji { font-size: 46px; text-align: center; line-height: 1.15; }
   .wx-text { font-size: 25px; font-weight: 800; text-align: center; margin: 2px 0 4px; }
   .wx-temps { text-align: center; font-size: 17px; margin-bottom: 6px; }
@@ -103,6 +104,8 @@
   /* 左：つぎの雨予報 */
   .nr-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
   .nextrain { font-size: 15.5px; line-height: 1.55; }
+  .nr-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .nr-when { color: #6b7280; font-weight: 700; white-space: nowrap; }
 
   /* 右：1時間毎の予報（列の順番はiPhone版に合わせる） */
   .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
@@ -185,7 +188,7 @@
     .hourly-scroll { flex: 1; min-height: 0; max-height: none; }
     .card { padding: 12px 14px; }
     .now-strip { padding: 6px 12px; margin-bottom: 14px; }
-    .day-title { line-height: 27px; margin-bottom: 6px; }
+    .day-title { line-height: 30px; margin-bottom: 6px; }
     .wx-emoji { font-size: 36px; }
     .wx-text { font-size: 22px; margin: 4px 0 6px; }
     .wx-temps { margin-bottom: 2px; }
@@ -230,7 +233,7 @@
     .nw-row:first-child .nw-v { font-size: 20px; }
     .nw-row:first-child .nw-feels { font-size: 17px; }
     .nw-e { font-size: 24px; }
-    .day-title { font-size: 16px; line-height: 24px; margin-bottom: 4px; }
+    .day-title { font-size: 19px; line-height: 26px; margin-bottom: 4px; }
     .wx-emoji { font-size: 30px; }
     .wx-text { font-size: 20px; margin: 2px 0 3px; }
     .wx-temps { font-size: 16px; margin-bottom: 0; }
@@ -268,6 +271,7 @@
   body.dark .status-line { color: #aeaeb2; }
   body.dark .card { background: #1c1c1e; border-color: #38383a; box-shadow: 0 2px 8px rgba(0,0,0,.4); }
   body.dark .day-title { color: #d1d1d6; }
+  body.dark .nr-when { color: #aeaeb6; }
   body.dark .hi { color: #ff6b61; }
   body.dark .lo { color: #4da3ff; }
   body.dark .feels-strip { background: #33291a; }
@@ -343,15 +347,9 @@
 <div class="wrap">
   <header>
     <div class="h-left">
-      <div class="h-row">
-        <h1>☀️ 天気予報 <span class="h-sub">KYOWA ROOF</span></h1>
-        <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
-      </div>
-      <div class="h-row">
-        <a class="btn-radar" id="radarBtn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer">🌧️ レーダー</a>
-        <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
-        <p class="status-line" id="fetchStatus"></p>
-      </div>
+      <h1>☀️ 天気予報 <span class="h-sub">KYOWA ROOF</span></h1>
+      <button type="button" class="btn-loc" id="locOpenBtn">📍 <span id="locBtnLabel">場所を選択</span> <span class="chev">▼ 管理</span></button>
+      <p class="status-line" id="fetchStatus"></p>
     </div>
     <div class="h-right">
       <div class="tabs">
@@ -393,6 +391,11 @@
           <span class="fv" id="feelAvg">--℃</span>
         </div>
       </section>
+
+      <div class="btn-row-btw">
+        <a class="btn-radar" id="radarBtn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer">🌧️ レーダー</a>
+        <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
+      </div>
 
       <!-- つぎの雨予報 -->
       <section class="card">
@@ -1845,6 +1848,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (!lastData) return;
     const now = new Date();
     const nr = findNextRain(lastData.hourly || [], lastData.week || [], now);
+    const whenText = (dt) => {
+      const ms = dt - now;
+      if (!(ms > 0)) return '';
+      const totalHours = Math.round(ms / 3600000);
+      const days = Math.floor(totalHours / 24);
+      return `${days}日後、${totalHours}時間後`;
+    };
     if (nr.type === 'hourly') {
       const label = dayLabel(nr.startDt, now);
       let txt = `☂️ 次の雨は ${label} ${nr.startDt.getHours()}時ごろから`;
@@ -1853,10 +1863,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         txt += `${endLabel === label ? '' : ' ' + endLabel} ${nr.endDt.getHours() + 1}時ごろまで`;
       }
       if (nr.maxMm > 0) txt += `（最大 約${nr.maxMm}ミリ）`;
-      el.innerHTML = txt;
+      el.innerHTML = `<div class="nr-row"><span class="nr-main">${txt}</span><span class="nr-when">${whenText(nr.startDt)}</span></div>`;
     } else if (nr.type === 'week') {
       const label = dayLabel(nr.date, now);
-      el.innerHTML = `☂️ しばらく雨はなさそうです（次の雨は ${label} ごろの見込み${nr.pop != null ? `・降水確率 ${nr.pop}%` : ''}）`;
+      el.innerHTML = `<div class="nr-row"><span class="nr-main">☂️ しばらく雨はなさそうです（次の雨は ${label} ごろの見込み${nr.pop != null ? `・降水確率 ${nr.pop}%` : ''}）</span><span class="nr-when">${whenText(nr.date)}</span></div>`;
     } else {
       el.innerHTML = `☀️ 雨の予報はありません（週間予報の範囲で雨の日はなさそうです）`;
     }
