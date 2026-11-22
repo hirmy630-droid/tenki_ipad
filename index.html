@@ -126,16 +126,16 @@
   .nw-e { display: inline-block; transform: scale(1.3); }
   .wk-e { transform: scale(1.3); }
 
-  /* 右：週間（カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水） */
-  .week-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
-  .wk-card { flex: 0 0 96px; box-sizing: border-box; border: 1px solid #ececf0; border-radius: 10px; padding: 10px 4px; text-align: center; background: #fff; }
+  /* 右：週間（カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水。配色は1時間パネルに合わせる） */
+  .week-strip { display: flex; gap: 8px; overflow-x: auto; padding: 8px; -webkit-overflow-scrolling: touch; background: #f2f2f7; border-radius: 10px; }
+  .wk-card { flex: 0 0 96px; box-sizing: border-box; border: 1px solid rgba(120,120,128,0.22); border-radius: 10px; padding: 10px 4px; text-align: center; background: #fff; }
   .wk-d { font-size: 15px; font-weight: 800; line-height: 1.3; }
   .wk-d .sat { color: #1971c2; } .wk-d .sun { color: #e03131; }
   .wk-e { font-size: 27px; line-height: 1.3; }
   .wk-t { font-size: 15.5px; font-weight: 700; white-space: nowrap; }
   .wk-wind { font-size: 14.5px; color: #3a3a3c; margin-top: 3px; }
   .wk-wind.om { color: #8e8e93; }
-  .wk-pop { font-size: 14.5px; font-weight: 700; color: #1971c2; margin-top: 2px; }
+  .wk-pop { font-size: 14.5px; font-weight: 700; color: #007aff; margin-top: 2px; }
   .note { font-size: 14px; color: #6b7280; }
 
 
@@ -290,10 +290,15 @@
   body.dark table.htable td.rz { color: #5f5f66; }
   body.dark table.htable tr.nowrow td { background: rgba(255,204,0,0.35); }
   body.dark table.htable tr.day-sep td { background: rgba(0,0,0,0.13); color: #3a3a3c; }
-  body.dark .wk-card { background: #2c2c2e; border-color: #38383a; }
-  body.dark .wk-d .sat { color: #4da3ff; }
-  body.dark .wk-wind { color: #d1d1d6; }
-  body.dark .wk-pop { color: #4da3ff; }
+  body.dark .week-strip { background: linear-gradient(180deg, #ededf2 0%, #cfcfd6 55%, #aeaeb6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.12); }
+  body.dark .week-strip .note { color: #48484a; }
+  body.dark .wk-card { background: #fff; border-color: rgba(0,0,0,0.16); color: #1c1c1e; }
+  body.dark .wk-card .hi { color: #e03131; }
+  body.dark .wk-card .lo { color: #1971c2; }
+  body.dark .wk-d .sat { color: #1971c2; }
+  body.dark .wk-wind { color: #3a3a3c; }
+  body.dark .wk-wind.om { color: #5f5f66; }
+  body.dark .wk-pop { color: #007aff; }
   body.dark .note { color: #8e8e93; }
   body.dark .alert-banner.sev1 { background: #3a3114; border-color: #e6c34a; color: #f5d76e; }
   body.dark .alert-banner.sev2 { background: #3d1717; border-color: #ef5350; color: #ff9d97; }
@@ -409,7 +414,7 @@
         <h2 class="panel-title">🕐 1時間毎の予報</h2>
         <div class="hourly-scroll" id="hourlyScroll">
           <table class="htable">
-            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風速</th><th>確率</th><th>雨量</th><th>風向</th></tr></thead>
+            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風向</th><th>風速</th><th>確率</th><th>雨量</th></tr></thead>
             <tbody id="hourlyBody"><tr><td colspan="8" class="note">読み込み中…</td></tr></tbody>
           </table>
         </div>
@@ -1851,7 +1856,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
   }
 
-  // 右パネル：1時間毎の予報（列の順番はv2の1時間スライドの上下順を左右に当てはめる：時／天気／気温／体感／風速／確率／雨量／風向。配色もv2と同じ）
+  // 右パネル：1時間毎の予報（列の順番はv2の1時間スライドの上下順を左右に当てはめる：時／天気／気温／体感／風速／確率／雨量。風向は風速の左に置く。配色もv2と同じ）
   // 表示範囲はv2と同じく今日0時〜明後日の終わりまでの通し（72時間）。日付の区切り行を入れ、
   // パネルをスクロールして日をまたいだら予報タブも連動して切り替える（判定はスクロール停止後だけなので軽い）
   function renderHourlyPanel() {
@@ -1892,7 +1897,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
       const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40 && prc != null && prc >= 0.3)) ? 'rn' : 'rz';
-      html += `<tr${cls} data-day="${diff}"><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="hp">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td>${dirCell}</td></tr>`;
+      html += `<tr${cls} data-day="${diff}"><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${dirCell}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="hp">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td></tr>`;
     });
     const sc = $('hourlyScroll');
     const prevScroll = sc.scrollTop;
