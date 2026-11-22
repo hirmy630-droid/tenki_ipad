@@ -1209,11 +1209,21 @@ function resolveJmaArea(area, addr) {
     const c10 = area.class10s[c15.parent]; if (!c10) return null;
     return c10.parent;
   };
+  const entries = Object.entries(area.class20s).map(([code, v]) => ({ code, name: v.name, v }));
   const pm = String(addr).match(/^(北海道|東京都|京都府|大阪府|.{2,3}県)/);
-  if (!pm) return null;
+  if (!pm) {
+    // 都道府県から始まらない住所（現在地の逆引きは「品川区 八潮」のように区から始まることがある）：
+    // 先頭に一致する市区町村が全国で1つだけなら、それを使う。同名が複数ある場合は決められないので null
+    let cands = entries.filter(x => addr.startsWith(x.name)).sort((a, b) => b.name.length - a.name.length);
+    if (!cands.length) return null;
+    const L = cands[0].name.length;
+    cands = cands.filter(x => x.name.length === L);
+    if (cands.length !== 1) return null;
+    const c = cands[0];
+    return { muni: c.name, codes: [c.code], office: ancestorOffice(c.v) };
+  }
   const pref = pm[0];
   const rest = String(addr).slice(pref.length).replace(/^.+?郡/, '');
-  const entries = Object.entries(area.class20s).map(([code, v]) => ({ code, name: v.name, v }));
   let cands = entries.filter(x => rest.startsWith(x.name)).sort((a, b) => b.name.length - a.name.length);
   if (cands.length) {
     const L = cands[0].name.length;
