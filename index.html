@@ -1203,6 +1203,7 @@ function jmaWarnSeverity(code) {
 // 気象庁 area.json と住所から、警報を見る市区町村コード（複数ある分割市は全部）と府県予報区コードを引く
 function resolveJmaArea(area, addr) {
   if (!area || !area.class20s || !addr) return null;
+  addr = String(addr).replace(/[\s　]/g, '');
   const ancestorOffice = (v) => {
     const c15 = area.class15s[v.parent]; if (!c15) return null;
     const c10 = area.class10s[c15.parent]; if (!c10) return null;
