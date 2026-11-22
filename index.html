@@ -65,12 +65,14 @@
   .feels-strip { display: flex; align-items: center; justify-content: space-between; background: #fff7e6; border: 1px solid #dec084; border-radius: 12px; padding: 9px 12px; margin: 11px 0 10px; }
   .feels-strip .fk { font-size: 16px; font-weight: 700; color: #92400e; }
   .feels-strip .fv { font-size: 19px; font-weight: 800; color: #ff6a3a; }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  .cell { background: #eef0f4; border: 1px solid #d9dde5; border-radius: 10px; padding: 8px 4px; text-align: center; }
-  .cell .k { font-size: 14.5px; color: #4b5563; line-height: 1.2; }
-  .cell .v { font-size: 19px; font-weight: 800; line-height: 1.25; }
+  /* 降水確率・雨量・風速は最高/最低の下の行へ移動（v2と同じ配置） */
+  .wx-maxline { margin-top: 3px; font-size: 18px; font-weight: 700; text-align: center; }
+  .wx-maxline .mk { font-size: 14.5px; color: #6b7280; font-weight: 600; margin-right: 3px; }
+  .wx-maxline .mrow { display: flex; justify-content: center; align-items: baseline; gap: 18px; margin-top: 2px; }
+  .wx-maxline .mrow:first-child { margin-top: 0; }
+  .wx-maxline .mx { white-space: nowrap; }
   #wxPrec .hr { font-size: calc(100% - 2px); }
-  .cell .v .wdir { display: inline-block; margin-right: 3px; }
+  .wx-maxline .wdir { display: inline-block; margin-right: 3px; }
   .nw-v .wdir { display: inline-block; margin-right: 2px; }
   .wicon { width: 20px; height: 20px; vertical-align: -5px; margin-right: 2px; }
   .wicon-t { width: 20px; height: 20px; vertical-align: -5px; }
@@ -81,10 +83,11 @@
   /* 左：服装（データ配置はiPhone版に合わせる） */
   .card.outfit { background: #fffaf0; border-color: #f0dcb2; }
   .of-title { font-size: 19px; font-weight: 800; color: #b3540a; margin-bottom: 12px; }
-  .of-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .of-box { background: #fff; border: 1px solid #f0e2c4; border-radius: 10px; padding: 10px 12px; }
-  .of-k { font-size: 15.5px; font-weight: 700; color: #b3540a; margin-bottom: 4px; }
-  .of-v { font-size: 19px; font-weight: 800; line-height: 1.35; }
+  #clothesTitle .judge-feel { color: #cc6600; margin-left: 8px; }
+  .of-grid { display: flex; gap: 10px; }
+  .of-col { flex: 1; background: #fff; border: 1px solid #f0e2c4; border-radius: 10px; overflow: hidden; }
+  .of-h { text-align: center; font-weight: 700; font-size: 15.5px; color: #b3540a; background: #fdf3dd; padding: 5px 0; }
+  .of-v { font-size: 19px; line-height: 1.55; font-weight: 800; padding: 6px 10px; text-align: center; }
   .band3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .b3 { background: #fff; border: 1px solid #dec084; border-radius: 10px; padding: 9px 4px; text-align: center; }
   .b3-k { font-size: 15px; color: #6b7280; }
@@ -101,15 +104,16 @@
 
   /* 右：1時間毎の予報（列の順番はiPhone版に合わせる） */
   .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
-  .hourly-scroll { max-height: 566px; overflow-y: auto; }
+  .hourly-scroll { max-height: 566px; overflow-y: auto; background: #f2f2f7; border-radius: 10px; }
   table.htable { width: 100%; border-collapse: collapse; }
-  table.htable th { position: sticky; top: 0; background: #eef0f4; font-size: 16.5px; color: #4b5563; font-weight: 700; padding: 8px 6px; text-align: center; z-index: 1; }
-  table.htable td { font-size: 19px; padding: 9px 6px; border-bottom: 1px solid #f0f0f3; text-align: center; }
+  table.htable th { position: sticky; top: 0; background: #f2f2f7; font-size: 16.5px; color: #6b7280; font-weight: 600; padding: 8px 6px; text-align: center; z-index: 1; }
+  table.htable td { font-size: 19px; padding: 9px 6px; border-bottom: 1px solid rgba(120,120,128,0.22); text-align: center; }
   table.htable td.wxe { font-size: 22px; }
-  table.htable td.tm { font-weight: 800; font-size: 18px; white-space: nowrap; }
-  table.htable td.fl { color: #ff9500; font-weight: 800; }
-  table.htable td.rn { color: #007aff; font-weight: 800; }
-  table.htable td.rz { color: #6b7280; font-weight: 800; }
+  table.htable td.tm { font-weight: 700; font-size: 18px; white-space: nowrap; }
+  table.htable td.fl { color: #cc6600; font-weight: 700; }
+  table.htable td.hp { color: #007aff; }
+  table.htable td.rn { color: #007aff; font-weight: 700; }
+  table.htable td.rz { color: #8e8e93; }
   table.htable tr.past td { opacity: .42; }
   table.htable tr.nowrow td { background: #fff7e6; }
   /* 天気アイコンはレイアウト（行の高さ・幅）に影響しないよう、見た目だけ transform で拡大 */
@@ -119,9 +123,8 @@
   .wk-e { transform: scale(1.3); }
 
   /* 右：週間（カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水） */
-  .week-strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
-  @media (max-width: 1099px) { .week-strip { grid-template-columns: repeat(7, minmax(92px, 1fr)); overflow-x: auto; } }
-  .wk-card { border: 1px solid #ececf0; border-radius: 10px; padding: 10px 4px; text-align: center; background: #fff; }
+  .week-strip { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+  .wk-card { flex: 0 0 96px; box-sizing: border-box; border: 1px solid #ececf0; border-radius: 10px; padding: 10px 4px; text-align: center; background: #fff; }
   .wk-d { font-size: 15px; font-weight: 800; line-height: 1.3; }
   .wk-d .sat { color: #1971c2; } .wk-d .sun { color: #e03131; }
   .wk-e { font-size: 27px; line-height: 1.3; }
@@ -182,13 +185,11 @@
     .wx-temps { margin-bottom: 2px; }
     .wx-temps b { font-size: 23px; }
     .feels-strip { padding: 6px 12px; margin: 10px 0 6px; }
-    .cell { padding: 5px 4px; }
     .btn-radar { padding: 0 14px; }
     .of-v { font-size: 18px; }
     .band3 { margin-top: 10px; }
     .b3 { padding: 6px 4px; }
     .of-title { margin-bottom: 8px; }
-    .of-box { padding: 8px 10px; }
     .advice { padding: 8px 10px; }
     .col-left .card.outfit { flex: 1; display: flex; flex-direction: column; }
     .col-left .band3 { margin-bottom: 8px; }
@@ -231,13 +232,10 @@
     .feels-strip { padding: 5px 10px; margin: 6px 0; }
     .feels-strip .fk { font-size: 15px; }
     .feels-strip .fv { font-size: 18px; }
-    .cell { padding: 4px; }
-    .cell .k { font-size: 13.5px; }
-    .cell .v { font-size: 17px; }
+    .wx-maxline { font-size: 16.5px; }
     .col-left .card.outfit { flex: 1; display: flex; flex-direction: column; }
     .of-title { font-size: 17px; margin-bottom: 6px; }
-    .of-box { padding: 6px 8px; }
-    .of-k { font-size: 14.5px; }
+    .of-h { font-size: 14.5px; }
     .of-v { font-size: 16.5px; }
     .band3 { margin: 6px 0; gap: 6px; }
     .b3 { padding: 4px; }
@@ -268,21 +266,25 @@
   body.dark .lo { color: #4da3ff; }
   body.dark .feels-strip { background: #33291a; }
   body.dark .feels-strip .fk { color: #e8c07a; }
-  body.dark .cell { background: #2c2c2e; border-color: #38383a; }
-  body.dark .cell .k { color: #aeaeb2; }
+  body.dark .wx-maxline .mk { color: #aeaeb2; }
   body.dark .card.outfit { background: #241c12; border-color: #6b5836; }
-  body.dark .of-title, body.dark .of-k { color: #e8a34c; }
-  body.dark .of-box { background: #1c1c1e; border-color: #6b5836; }
+  body.dark .of-title { color: #e8a34c; }
+  body.dark #clothesTitle .judge-feel { color: #ff9f0a; }
+  body.dark .of-col { background: #1c1c1e; border-color: #6b5836; }
+  body.dark .of-h { color: #e8a34c; background: #33291a; }
   body.dark .b3 { background: #1c1c1e; }
   body.dark .b3-k { color: #aeaeb2; }
   body.dark .b3-v.c20 { color: #4da3ff; }
   body.dark .advice.rain { background: #12283f; }
   body.dark .advice.ok { background: #14301c; }
   body.dark .advice.warn { background: #33291a; }
-  body.dark table.htable th { background: #2c2c2e; color: #aeaeb2; }
-  body.dark table.htable td { border-bottom-color: #38383a; }
-  body.dark table.htable td.rz { color: #aeaeb2; }
-  body.dark table.htable tr.nowrow td { background: #33291a; }
+  body.dark .hourly-scroll { background: linear-gradient(180deg, #ededf2 0%, #cfcfd6 55%, #aeaeb6 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.85), inset 0 -1px 0 rgba(0,0,0,0.12); }
+  body.dark table.htable th { background: #e3e3e8; color: #48484a; }
+  body.dark table.htable td { border-bottom-color: rgba(0,0,0,0.16); color: #1c1c1e; }
+  body.dark table.htable td.fl { color: #cc6600; }
+  body.dark table.htable td.hp, body.dark table.htable td.rn { color: #007aff; }
+  body.dark table.htable td.rz { color: #5f5f66; }
+  body.dark table.htable tr.nowrow td { background: rgba(255,204,0,0.35); }
   body.dark .wk-card { background: #2c2c2e; border-color: #38383a; }
   body.dark .wk-d .sat { color: #4da3ff; }
   body.dark .wk-wind { color: #d1d1d6; }
@@ -366,15 +368,13 @@
         <div class="wx-emoji" id="wxEmoji">🌤️</div>
         <div class="wx-text" id="wxText">読み込み中…</div>
         <div class="wx-temps">最高 <b class="hi" id="wxHigh">--℃</b>　最低 <b class="lo" id="wxLow">--℃</b></div>
+        <div class="wx-maxline">
+          <div class="mrow"><span class="mx">💧 午前 <span id="wxPopAm">--%</span> 午後 <span id="wxPopPm">--%</span></span></div>
+          <div class="mrow"><span class="mx"><span class="mk">雨量</span><span id="wxPrec">--ミリ</span></span><span class="mx"><span class="mk">風速</span><span id="wxWind">-- m/s</span></span></div>
+        </div>
         <div class="feels-strip">
           <span class="fk" id="feelAvgLabel">🌡️ 体感温度（日中平均）</span>
           <span class="fv" id="feelAvg">--℃</span>
-        </div>
-        <div class="grid2">
-          <div class="cell"><div class="k">降水確率（午前）</div><div class="v" id="wxPopAm">--%</div></div>
-          <div class="cell"><div class="k">降水確率（午後）</div><div class="v" id="wxPopPm">--%</div></div>
-          <div class="cell" id="precCell"><div class="k">最大降水量</div><div class="v" id="wxPrec">--ミリ</div></div>
-          <div class="cell" id="windCell"><div class="k">風速</div><div class="v" id="wxWind">-- m/s</div></div>
         </div>
       </section>
 
@@ -387,10 +387,7 @@
       <!-- 服装 -->
       <section class="card outfit">
         <h2 class="of-title" id="clothesTitle">👕 今日の服装</h2>
-        <div class="of-grid">
-          <div class="of-box"><div class="of-k">トップス</div><div class="of-v" id="outfitTops">--</div></div>
-          <div class="of-box"><div class="of-k">ボトムス</div><div class="of-v" id="outfitBottoms">--</div></div>
-        </div>
+        <div id="clothesBands"></div>
         <div class="band3">
           <div class="b3"><div class="b3-k">8時の体感</div><div class="b3-v" id="feel8">--℃</div></div>
           <div class="b3"><div class="b3-k">14時の体感</div><div class="b3-v c14" id="feel14">--℃</div></div>
@@ -407,7 +404,7 @@
         <h2 class="panel-title">🕐 1時間毎の予報</h2>
         <div class="hourly-scroll" id="hourlyScroll">
           <table class="htable">
-            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>降水</th><th>雨量</th><th>風速</th><th>風向</th></tr></thead>
+            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風速</th><th>確率</th><th>雨量</th><th>風向</th></tr></thead>
             <tbody id="hourlyBody"><tr><td colspan="8" class="note">読み込み中…</td></tr></tbody>
           </table>
         </div>
@@ -415,7 +412,7 @@
 
       <!-- 週間予報 -->
       <section class="card">
-        <h2 class="panel-title">📅 週間天気予報（直近7日間）</h2>
+        <h2 class="panel-title" id="weekTitle">📅 週間天気予報</h2>
         <div class="week-strip" id="weekStrip"><p class="note">読み込み中…</p></div>
       </section>
     </div>
@@ -785,14 +782,14 @@ function feelsLike(temp, windSpd, wx, hour, sun, hum) {
 /* ---------- 服装判定 ---------- */
 function workOutfitFor(temp) {
   if (!Number.isFinite(temp)) return { tops: 'データなし', bottoms: '取得後に判定します' };
-  if (temp >= 31) return { tops: '空調服', bottoms: '夏ズボン' };
-  if (temp >= 25) return { tops: '半袖シャツ', bottoms: '夏ズボン' };
-  if (temp >= 21) return { tops: '長袖', bottoms: 'ズボン' };
-  if (temp >= 18) return { tops: '長袖＋ジャケット', bottoms: '冬ズボン' };
-  if (temp >= 15) return { tops: 'インナー＋長袖＋ジャケット', bottoms: 'インナー＋冬ズボン' };
-  if (temp >= 11) return { tops: '防寒インナー＋長袖＋軽防寒服', bottoms: 'インナー＋軽防寒ズボン' };
-  if (temp >= 6)  return { tops: '防寒インナー＋長袖シャツ＋ジャケット＋軽防寒服', bottoms: '防寒インナー＋軽防寒ズボン' };
-  return { tops: '防寒インナー＋長袖シャツ＋重防寒服', bottoms: '防寒インナー＋防寒ズボン' };
+  if (temp >= 31) return { tops: '空調服', bottoms: '夏ボトム' };
+  if (temp >= 25) return { tops: '夏半袖', bottoms: '夏ボトム' };
+  if (temp >= 21) return { tops: '長袖', bottoms: 'ボトム' };
+  if (temp >= 18) return { tops: '長袖＋上着', bottoms: '冬ボトム' };
+  if (temp >= 15) return { tops: '冬長袖＋冬上着', bottoms: 'インナー＋冬ボトム' };
+  if (temp >= 11) return { tops: 'インナー＋軽防寒長袖＋軽防寒上着', bottoms: 'インナー＋軽防寒ボトム' };
+  if (temp >= 6)  return { tops: '防寒インナー＋軽防寒長袖＋軽防寒上着', bottoms: '防寒インナー＋軽防寒ボトム' };
+  return { tops: '防寒インナー＋防寒長袖＋重防寒上着', bottoms: '防寒インナー＋重防寒ボトム' };
 }
 // 判定温度の風速補正：風速5m/s以上は-1℃、0.5m/s以下は+1℃
 function judgeTemp(feelsAvg, windAvg) {
@@ -1117,6 +1114,16 @@ function nightPeriod(sun, nowJst) {
   if (!sun || !nowJst) return null;
   const mins = nowJst.getUTCHours() * 60 + nowJst.getUTCMinutes();
   if (mins >= sun.set) return { from: Math.floor(sun.set / 60), to: 23 };
+  return null;
+}
+// メインの体感表示専用：v2と同じく日の出まで夜間にする（2026-11-22 hirmy 指示でiPadにも反映）
+//   日没〜0時は nightPeriod と同じ。0時〜日の出は夜明け前平均 {from: 0, to: 日の出の時}。服装判定には使わない
+function displayNightPeriod(sun, nowJst) {
+  const np = nightPeriod(sun, nowJst);
+  if (np) return np;
+  if (!sun || !nowJst) return null;
+  const mins = nowJst.getUTCHours() * 60 + nowJst.getUTCMinutes();
+  if (mins < sun.rise) return { from: 0, to: Math.floor(sun.rise / 60) };
   return null;
 }
 // 指定時間帯の体感温度の平均（daytimeFeelsAvg の時間帯版）。取れない場合はその日の全時間で代替
@@ -1730,7 +1737,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     let fAvg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sunM);
     let feelLbl = '🌡️ 体感温度（日中平均）';
     if (offset === 0) {
-      const np = nightPeriod(sunM, jstNow());
+      const np = displayNightPeriod(sunM, jstNow());
       if (np) { fAvg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sunM); feelLbl = '🌡️ 体感温度（夜間平均）'; }
     }
     $('feelAvgLabel').textContent = feelLbl;
@@ -1770,13 +1777,18 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const sun = sunRange(m);
     let avg = daytimeFeelsAvg(lastData.hourly, dayDate, m.MAXT, sun);
     let wAvg = daytimeWindAvg(lastData.hourly, dayDate);
+    let basisLbl = '日中';
     if ((DAY_OFFSET[currentDay] ?? 0) === 0) {
       const np = nightPeriod(sun, jstNow());
-      if (np) { avg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sun); wAvg = periodWindAvg(lastData.hourly, dayDate, np.from, np.to); }
+      if (np) { avg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sun); wAvg = periodWindAvg(lastData.hourly, dayDate, np.from, np.to); basisLbl = '夜間'; }
     }
     const o = workOutfitFor(judgeTemp(avg, wAvg));
-    $('outfitTops').textContent = o.tops;
-    $('outfitBottoms').textContent = o.bottoms;
+    $('clothesTitle').innerHTML = `👕 ${DAY_LABEL[currentDay]}の服装<span class="judge-feel">${basisLbl} ${avg != null ? `${avg}℃` : '--℃'}</span>`;
+    const topsLines = o.tops.split('＋').map(t => `<div>${t}</div>`).join('');
+    const bottomsLines = o.bottoms.split('＋').map(t => `<div>${t}</div>`).join('');
+    $('clothesBands').innerHTML =
+      `<div class="of-grid"><div class="of-col"><div class="of-h">トップス</div><div class="of-v">${topsLines}</div></div>` +
+      `<div class="of-col"><div class="of-h">ボトムス</div><div class="of-v">${bottomsLines}</div></div></div>`;
     const feels = [
       feelsAt(dayDate, 8, m.MINT, sun),
       feelsAt(dayDate, 14, m.MAXT, sun),
@@ -1817,7 +1829,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
   }
 
-  // 右パネル：1時間毎の予報（列の順番・書式はiPhone版のポップアップと同じ：時／天気／気温／体感／風速／降水）
+  // 右パネル：1時間毎の予報（列の順番はv2の1時間スライドの上下順を左右に当てはめる：時／天気／気温／体感／風速／確率／雨量／風向。配色もv2と同じ）
   function renderHourlyPanel() {
     const e = dayEntry(DAY_OFFSET[currentDay] ?? 0);
     const body = $('hourlyBody');
@@ -1838,7 +1850,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
       const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40 && prc != null && prc >= 0.3)) ? 'rn' : 'rz';
-      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td class="rn">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td>${dirCell}</td></tr>`;
+      html += `<tr${cls}><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="hp">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td>${dirCell}</td></tr>`;
     });
     body.innerHTML = html;
     // 今日表示のときは現在時刻の行まで自動スクロール
@@ -1848,7 +1860,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     else sc.scrollTop = 0;
   }
 
-  // 右パネル：週間天気予報（明日から7日間。カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水）
+  // 右パネル：週間天気予報（全データを横スクロールで表示。カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水）
   function renderWeekStrip() {
     const el = $('weekStrip');
     if (!lastData || !lastData.week || !lastData.week.length) {
@@ -1866,9 +1878,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     });
     // 1時間予報から集計できない日は、Open-Meteo の日別最大風速で補う（グレー表示）
     const omWind = lastData.omWind || {};
+    const days = lastData.week.slice(0, 14);
+    $('weekTitle').textContent = `📅 週間天気予報（全${days.length}日間）`;
     let html = '';
-    lastData.week.slice(1, 8).forEach((w, k) => {
-      const i = k + 1;
+    days.forEach((w, i) => {
       const base = new Date(Date.UTC(jn.getUTCFullYear(), jn.getUTCMonth(), today + i));
       const dowN = base.getUTCDay();
       const dowCls = dowN === 0 ? 'sun' : (dowN === 6 ? 'sat' : '');
@@ -1999,7 +2012,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
