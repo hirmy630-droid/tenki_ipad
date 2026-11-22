@@ -21,7 +21,8 @@
   header { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
   .h-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .btn-row-btw { display: flex; gap: 10px; }
-  .btn-row-btw .btn-radar, .btn-row-btw .btn-refresh { flex: 1; height: 42px; display: flex; align-items: center; justify-content: center; }
+  .btn-row-btw .btn-radar, .btn-row-btw .btn-refresh { flex: 1; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid #a7aeba; border-radius: 12px; background: linear-gradient(180deg, #ffffff, #eef0f4); box-shadow: 0 2px 5px rgba(15,23,42,.16), inset 0 1px 0 rgba(255,255,255,.9); }
+  .btn-row-btw .btn-radar:active, .btn-row-btw .btn-refresh:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(15,23,42,.18), inset 0 1px 0 rgba(255,255,255,.9); }
   h1 { font-size: 24px; font-weight: 800; margin: 0; letter-spacing: .02em; }
   h1 .h-sub { font-size: 14px; font-weight: 700; color: #4b5563; background: #dde1e8; border-radius: 6px; padding: 3px 8px; vertical-align: 3px; }
   .btn-loc { width: auto; max-width: 360px; height: 42px; min-height: 42px; padding: 0 18px; background: #fff; border: 1px solid #bfc5cf; border-radius: 14px; font-size: 16px; font-weight: 700; color: #1c1c1e; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -102,10 +103,11 @@
   .advice.warn { background: #fff7e6; }
 
   /* 左：つぎの雨予報 */
-  .nr-title { font-size: 18px; font-weight: 800; margin-bottom: 8px; }
+  .nr-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 8px; }
+  .nr-head .nr-title { margin-bottom: 0; }
+  .nr-title { font-size: 18px; font-weight: 800; margin: 0; }
   .nextrain { font-size: 15.5px; line-height: 1.55; }
-  .nr-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .nr-when { color: #6b7280; font-weight: 700; white-space: nowrap; }
+  .nr-when { color: #6b7280; font-weight: 700; white-space: nowrap; font-size: 15px; }
 
   /* 右：1時間毎の予報（列の順番はiPhone版に合わせる） */
   .panel-title { font-size: 18px; font-weight: 800; margin-bottom: 10px; }
@@ -265,6 +267,7 @@
   body.dark { background: #101013; color: #f2f2f7; }
   body.dark h1 .h-sub { color: #aeaeb2; background: #2c2c2e; }
   body.dark .btn-loc, body.dark .btn-refresh, body.dark .btn-radar { background: #1c1c1e; border-color: #48484a; color: #f2f2f7; }
+  body.dark .btn-row-btw .btn-radar, body.dark .btn-row-btw .btn-refresh { background: linear-gradient(180deg, #3a3a3c, #2c2c2e); border-color: #5a5a5e; box-shadow: 0 2px 5px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.12); }
   body.dark .tabs { background: #2c2c2e; }
   body.dark .tabs button { color: #d1d1d6; }
   body.dark .tabs button.on { background: #ff9500; color: #fff; }
@@ -399,7 +402,7 @@
 
       <!-- つぎの雨予報 -->
       <section class="card">
-        <h2 class="nr-title">🌧️ つぎの雨予報</h2>
+        <div class="nr-head"><h2 class="nr-title">🌧️ つぎの雨予報</h2><span class="nr-when" id="nrWhen"></span></div>
         <div class="nextrain" id="nextRain"><p class="note">予報を取得すると表示します。</p></div>
       </section>
 
@@ -1852,9 +1855,12 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const ms = dt - now;
       if (!(ms > 0)) return '';
       const totalHours = Math.round(ms / 3600000);
-      const days = Math.floor(totalHours / 24);
-      return `${days}日後、${totalHours}時間後`;
+      if (totalHours < 24) return `${totalHours}時間後`;
+      const dayMs = 86400000;
+      const days = Math.round((new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / dayMs);
+      return `${days}日後`;
     };
+    const whenEl = $('nrWhen');
     if (nr.type === 'hourly') {
       const label = dayLabel(nr.startDt, now);
       let txt = `☂️ 次の雨は ${label} ${nr.startDt.getHours()}時ごろから`;
@@ -1863,12 +1869,15 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         txt += `${endLabel === label ? '' : ' ' + endLabel} ${nr.endDt.getHours() + 1}時ごろまで`;
       }
       if (nr.maxMm > 0) txt += `（最大 約${nr.maxMm}ミリ）`;
-      el.innerHTML = `<div class="nr-row"><span class="nr-main">${txt}</span><span class="nr-when">${whenText(nr.startDt)}</span></div>`;
+      el.innerHTML = txt;
+      if (whenEl) whenEl.textContent = whenText(nr.startDt);
     } else if (nr.type === 'week') {
       const label = dayLabel(nr.date, now);
-      el.innerHTML = `<div class="nr-row"><span class="nr-main">☂️ しばらく雨はなさそうです（次の雨は ${label} ごろの見込み${nr.pop != null ? `・降水確率 ${nr.pop}%` : ''}）</span><span class="nr-when">${whenText(nr.date)}</span></div>`;
+      el.innerHTML = `☂️ しばらく雨はなさそうです（次の雨は ${label} ごろの見込み${nr.pop != null ? `・降水確率 ${nr.pop}%` : ''}）`;
+      if (whenEl) whenEl.textContent = whenText(nr.date);
     } else {
       el.innerHTML = `☀️ 雨の予報はありません（週間予報の範囲で雨の日はなさそうです）`;
+      if (whenEl) whenEl.textContent = '';
     }
   }
 
