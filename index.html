@@ -426,7 +426,7 @@
         <h2 class="panel-title">🕐 1時間毎の予報</h2>
         <div class="hourly-scroll" id="hourlyScroll">
           <table class="htable">
-            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風向</th><th>風速</th><th>確率</th><th>雨量</th></tr></thead>
+            <thead><tr><th>時</th><th>天気</th><th>気温</th><th>体感</th><th>風向</th><th>風速</th><th>雨量</th><th>確率</th></tr></thead>
             <tbody id="hourlyBody"><tr><td colspan="8" class="note">読み込み中…</td></tr></tbody>
           </table>
         </div>
@@ -530,9 +530,9 @@ function parseOmPop(json) {
 //   片方の確率が無いブロックは、従来通り1日の確率を超えないよう下げるだけにする。
 // 明後日以降（1日の確率のみ）：形付け後の上位3時間の平均が1日の確率と一致するよう、1日を通して調整する。
 // 引き上げ（拡大）の倍率は1.5倍まで。午前/午後ブロックでは生の確率が10%未満の時間は引き上げない
-//   （小さい値の増幅防止。そのため、大きく食い違うブロックでは最大値が目標に届かないことがある）。
+//   （小さい値の増幅防止）。そのため届かない場合は、下のピーク保証で一番高い1時間だけを目標値にする。
 //   1日単位の調整では10%未満の据え置きはしない（対象の時間がほぼ全て該当し、調整自体が無効になるため）。
-// Open-Meteo の値がその範囲全て0の場合は、時間配分が分からないため補正しない（0のまま）。
+// Open-Meteo の値がその範囲全て0の場合も、雨量に山があればその時間をピークにする。雨量も無ければ触らない（0のまま）。
 // targets: { 'YYYY-MM-DD': { am: 数値|null, pm: 数値|null, day: 数値|null } }
 // shapeRain: { 'YYYY-MM-DDTHH': 雨量mm }（形付け用）
 function correctPopMap(rawPop, targets, shapeRain) {
@@ -570,6 +570,34 @@ function correctPopMap(rawPop, targets, shapeRain) {
       out[key(dstr, from + i)] = Math.max(0, Math.min(100, Math.round(shaped[i] * f)));
     }
   };
+  // ピーク保証（2026-11-25）: 補正後の最大値が目標と食い違う場合、一番高い1時間だけを目標値に合わせる。
+  // 他の時間は変えない（1.5倍上限・10%未満据え置きは維持）。引き上げ時のピークの置き場は形付け後の
+  // 最大の時間、形付けが全て0なら雨量が最大の時間。それも無ければ触らない。
+  const guaranteePeak = (dstr, from, shaped, target) => {
+    let curMax = null, curIdx = -1;
+    for (let i = 0; i < shaped.length; i++) {
+      const v = out[key(dstr, from + i)];
+      if (v != null && (curMax === null || v > curMax)) { curMax = v; curIdx = i; }
+    }
+    if (curMax === null || curMax === target) return;
+    let idx = curIdx;
+    if (curMax < target) {
+      idx = -1;
+      let mx = 0;
+      for (let i = 0; i < shaped.length; i++) {
+        if (shaped[i] != null && shaped[i] > mx) { mx = shaped[i]; idx = i; }
+      }
+      if (idx < 0) {
+        let rMx = 0;
+        for (let i = 0; i < shaped.length; i++) {
+          const r = shapeRain ? shapeRain[key(dstr, from + i)] : null;
+          if (r != null && r > rMx) { rMx = r; idx = i; }
+        }
+      }
+      if (idx < 0) return;
+    }
+    out[key(dstr, from + idx)] = Math.max(0, Math.min(100, target));
+  };
   Object.keys(targets).forEach(dstr => {
     const t = targets[dstr] || {};
     if (t.am != null || t.pm != null) {
@@ -590,6 +618,7 @@ function correctPopMap(rawPop, targets, shapeRain) {
           return;
         }
         applyScale(dstr, hf.from, shaped, target, vals => Math.max.apply(null, vals), true);
+        guaranteePeak(dstr, hf.from, shaped, target);
       });
     } else if (t.day != null) {
       // 明後日以降：上位3時間の平均を1日の確率へ合わせる
@@ -598,6 +627,7 @@ function correctPopMap(rawPop, targets, shapeRain) {
         const top = vals.slice().sort((a, b) => b - a).slice(0, 3);
         return top.reduce((s, v) => s + v, 0) / top.length;
       }, false);
+      guaranteePeak(dstr, 0, shaped, t.day);
     }
   });
   return out;
@@ -1929,7 +1959,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
   }
 
-  // 右パネル：1時間毎の予報（列の順番はv2の1時間スライドの上下順を左右に当てはめる：時／天気／気温／体感／風速／確率／雨量。風向は風速の左に置く。配色もv2と同じ）
+  // 右パネル：1時間毎の予報（列の順番：時／天気／気温／体感／風向／風速／雨量／確率。確率は2026-11-25に一番右へ移動。風向は風速の左。配色はv2と同じ）
   // 表示範囲はv2と同じく今日0時〜明後日の終わりまでの通し（72時間）。日付の区切り行を入れ、
   // パネルをスクロールして日をまたいだら予報タブも連動して切り替える（判定はスクロール停止後だけなので軽い）
   function renderHourlyPanel() {
@@ -1970,7 +2000,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const dirLbl = windDirLabel(r.windDir) ?? '―';
       const dirCell = r.windImg && r.windSpd > 0 ? `<span>${dirLbl}</span><img class="wicon-t" src="https://gvs.weathernews.jp/onebox/img/wind/png/${r.windImg}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : dirLbl;
       const rCls = r.rainMm != null && (r.rainMm >= 1 || (pop != null && pop >= 40 && prc != null && prc >= 0.3)) ? 'rn' : 'rz';
-      html += `<tr${cls} data-day="${diff}"><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${dirCell}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="hp">${pop != null ? `${pop}%` : '―'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td></tr>`;
+      html += `<tr${cls} data-day="${diff}"><td class="tm">${r.time}時</td><td class="wxe"><span class="wxe-s">${wxEmoji(r.wx)}</span></td><td>${r.temp ?? '--'}</td><td class="fl">${fl ?? '--'}</td><td>${dirCell}</td><td>${r.windSpd != null ? `${r.windSpd}m` : '--'}</td><td class="${rCls}">${r.rainMm != null ? `${r.rainMm}㎜` : '―'}</td><td class="hp">${pop != null ? `${pop}%` : '―'}</td></tr>`;
     });
     const sc = $('hourlyScroll');
     const prevScroll = sc.scrollTop;
