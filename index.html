@@ -1782,16 +1782,20 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       $('nowWind').innerHTML = `風速 ${oIcon}${obs.windSpd != null ? obs.windSpd : '--'}m/s`;
       const fObs = feelsLike(obs.temp, obs.windSpd, obs.wx != null ? obs.wx : (row ? row.wx : null), row ? row.time : jstNow().getUTCHours(), sunM, row ? row.hum : undefined);
       const oDm = obs.windIcon && obs.windIcon.match(/wind_\d+_(\d+)\./);
-      nowJudge = { feels: fObs, wind: obs.windSpd != null ? obs.windSpd : null, temp: obs.temp, dir: oDm ? Number(oDm[1]) : (row ? row.windDir : null) };
-      setFeels(fObs);
+      const oDir = oDm ? Number(oDm[1]) : (row ? row.windDir : null);
+      // 現在天気の体感表示にも判定補正をかける（2026-11-24 hirmy 指示、iPhone v2 と同じ）。nowJudge.feels は補正後の値を持ち、ポップアップ側では二重補正しない
+      const fObsJ = judgeTemp(fObs, obs.windSpd, isNorthWind(oDir));
+      nowJudge = { feels: fObsJ, wind: obs.windSpd != null ? obs.windSpd : null, temp: obs.temp, dir: oDir };
+      setFeels(fObsJ);
       return;
     }
     if (!row) return;
     $('nowWx').textContent = wxEmoji(row.wx);
     $('nowTemp').textContent = row.temp != null ? `${row.temp}℃` : '--℃';
     const fRow = feelsLike(row.temp, row.windSpd, row.wx, row.time, sunM, row.hum);
-    nowJudge = { feels: fRow, wind: row.windSpd != null ? row.windSpd : null, temp: row.temp, dir: row.windDir };
-    setFeels(fRow);
+    const fRowJ = judgeTemp(fRow, row.windSpd, isNorthWind(row.windDir));
+    nowJudge = { feels: fRowJ, wind: row.windSpd != null ? row.windSpd : null, temp: row.temp, dir: row.windDir };
+    setFeels(fRowJ);
     $('nowRain').textContent = `降水量 ${row.rainMm != null ? row.rainMm : 0}ミリ`;
     const nDeg = windToDeg(row.windDir);
     const nArrow = nDeg != null && row.windSpd > 0 ? `<span class="wdir" style="transform:rotate(${nDeg}deg)">↑</span>` : '';
@@ -2012,7 +2016,8 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   // 現在天気タップ：現在の体感（帯に表示している実況ベースの値）で判定する
   function openNowOutfit() {
     if (!nowJudge || nowJudge.feels == null) return;
-    openOutfitPopup('👕 現在の服装判定', `現在の体感 ${nowJudge.feels}℃${nowJudge.wind != null ? `・風速 ${nowJudge.wind}m/s` : ''}${nowJudge.temp != null ? `（気温 ${nowJudge.temp}℃）` : ''} で判定`, nowJudge.feels, nowJudge.wind, isNorthWind(nowJudge.dir));
+    // nowJudge.feels は現在天気の表示と同じ補正後の値なので、ここでは補正をかけ直さない（wind=null で素通し）
+    openOutfitPopup('👕 現在の服装判定', `現在の体感 ${nowJudge.feels}℃${nowJudge.wind != null ? `・風速 ${nowJudge.wind}m/s` : ''}${nowJudge.temp != null ? `（気温 ${nowJudge.temp}℃）` : ''} で判定`, nowJudge.feels, null, false);
   }
 
   // 右パネル：週間天気予報（全データを横スクロールで表示。カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水）
