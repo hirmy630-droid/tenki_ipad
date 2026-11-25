@@ -70,8 +70,8 @@
   .feels-strip .fk { font-size: 16px; font-weight: 700; color: #92400e; }
   .feels-strip .fv { font-size: 19px; font-weight: 800; color: #ff6a3a; }
   /* 降水確率・雨量・風速は最高/最低の下の行へ移動（v2と同じ配置） */
-  .wx-maxline { margin-top: 3px; font-size: 18px; font-weight: 700; text-align: center; }
-  .wx-maxline .mk { font-size: 14.5px; color: #6b7280; font-weight: 600; margin-right: 3px; }
+  .wx-maxline { margin-top: 3px; font-size: 19px; line-height: 22px; font-weight: 700; text-align: center; }
+  .wx-maxline .mk { font-size: 15.5px; color: #6b7280; font-weight: 600; margin-right: 3px; }
   .wx-maxline .mrow { display: flex; justify-content: center; align-items: baseline; gap: 18px; margin-top: 2px; }
   .wx-maxline .mrow:first-child { margin-top: 0; }
   .wx-maxline .mx { white-space: nowrap; }
@@ -1798,8 +1798,10 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     }
     $('feelAvgLabel').textContent = feelLbl;
     $('feelAvg').textContent = fAvg != null ? `${fAvg}℃` : '--℃';
-    // 風速（1日の最大）＋最大風速の時刻の風向き矢印（吹いていく向き）
-    const wInfo = dayWindMaxInfo(lastData.hourly, dayDate);
+    // 風速の最大＋最大風速の時刻の風向き矢印（吹いていく向き）。今日は今の時間から先だけを対象にする
+    const nowH = jstNow().getUTCHours();
+    const hrsForMax = offset === 0 ? (lastData.hourly || []).filter(r => !sameDay(r.date, dayDate) || r.time >= nowH) : lastData.hourly;
+    const wInfo = dayWindMaxInfo(hrsForMax, dayDate);
     const wDeg = wInfo ? windToDeg(wInfo.dir) : null;
     const wArrow = wDeg != null && wInfo.spd > 0 ? `<span class="wdir" style="transform:rotate(${wDeg}deg)">↑</span>` : '';
     const wIcon = wInfo && wInfo.img && wInfo.spd > 0 ? `<img class="wicon" src="https://gvs.weathernews.jp/onebox/img/wind/png/${wInfo.img}" alt="" onload="var p=this.previousElementSibling;if(p)p.style.display='none'" onerror="this.remove()">` : '';
@@ -1810,9 +1812,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     $('wxPopAm').textContent = popAm === null || popAm === undefined ? `${m.POP ?? '--'}%` : `${popAm}%`;
     $('wxPopPm').textContent = popPm === null || popPm === undefined ? `${m.POP ?? '--'}%` : `${popPm}%`;
     // 降水量は、その日の1時間降水量の最大値とその時刻で表示する（雨が無い日は従来通り1日の合計）
-    // 今日は、過ぎた時間の判定に実況の降水量を使う
-    const rMax = dayRainMax(lastData.hourly, dayDate, offset === 0 && lastData.obs ? lastData.obs.precMap : null);
-    $('wxPrec').innerHTML = rMax && rMax.mm > 0 ? `<span class="hr">${rMax.hour}時</span> ${rMax.mm}㎜` : `${m.PREC}ミリ`;
+    // 今日は今の時間から先だけが対象（過ぎた時間と実況は使わない）。今から先に雨が無ければ 0㎜
+    const rMax = dayRainMax(hrsForMax, dayDate, null);
+    $('wxPrec').innerHTML = rMax && rMax.mm > 0 ? `<span class="hr">${rMax.hour}時</span> ${rMax.mm}㎜` : (offset === 0 && rMax ? '0㎜' : `${m.PREC}ミリ`);
 
     renderNow();
     renderOutfit();
