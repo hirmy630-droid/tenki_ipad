@@ -87,7 +87,8 @@
   /* 左：服装（データ配置はiPhone版に合わせる） */
   .card.outfit { background: #fffaf0; border-color: #f0dcb2; }
   .of-title { font-size: 19px; font-weight: 800; color: #b3540a; margin-bottom: 12px; }
-  #clothesTitle .judge-feel { color: #cc6600; margin-left: 8px; }
+  #clothesTitle { display: flex; align-items: baseline; }
+  #clothesTitle .judge-feel { color: #cc6600; margin-left: auto; }
   .of-grid { display: flex; gap: 10px; }
   .of-col { flex: 1; background: #fff; border: 1px solid #f0e2c4; border-radius: 10px; overflow: hidden; }
   .of-h { text-align: center; font-weight: 700; font-size: 15.5px; color: #b3540a; background: #fdf3dd; padding: 5px 0; }
@@ -159,6 +160,7 @@
   .sheet-head h3 { font-size: 17px; font-weight: 700; flex: 1; margin: 0; }
   #outfitTitle { display: flex; align-items: baseline; }
   #outfitTitle .of-band { margin-left: auto; font-weight: 700; }
+  .of-band.badge { padding: 1px 9px; border-radius: 999px; }
   .sheet-close { background: #f2f2f7; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; }
   .flabel { display: block; font-size: 14px; font-weight: 600; margin: 10px 0 4px; }
   .sheet input[type="text"] { font-size: 16px; padding: 10px 12px; border: 1px solid #d1d1d6; border-radius: 10px; width: 100%; box-sizing: border-box; }
@@ -804,14 +806,22 @@ function workOutfitFor(temp) {
 // 服装表示基準の短いラベルと色（服装判定ポップアップの見出し右に表示。区分は服装表と一致）
 function outfitBand(t) {
   if (t == null || !Number.isFinite(t)) return { name: '', color: '#48484a' };
-  if (t >= 31) return { name: '空調服', color: '#007aff' };
+  if (t >= 31) return { name: '空調服', color: '#ffffff', bg: '#007aff' };
   if (t >= 25) return { name: '薄手', color: '#007aff' };
   if (t >= 21) return { name: '夏服', color: '#007aff' };
   if (t >= 18) return { name: '冬服', color: '#cc6600' };
   if (t >= 15) return { name: '厚手服', color: '#cc6600' };
   if (t >= 11) return { name: '軽防寒服', color: '#cc6600' };
   if (t >= 6) return { name: '防寒服', color: '#dd2222' };
-  return { name: '重防寒服', color: '#dd2222' };
+  return { name: '重防寒服', color: '#ffffff', bg: '#dd2222' };
+}
+
+// 基準ラベルの span（両端の区分は白文字＋背景色のバッジ、それ以外は文字色のみ）
+function bandSpanHtml(band) {
+  if (!band || !band.name) return '';
+  return band.bg
+    ? `<span class="of-band badge" style="color:${band.color};background:${band.bg}">${band.name}</span>`
+    : `<span class="of-band" style="color:${band.color}">${band.name}</span>`;
 }
 
 function judgeTemp(feelsAvg, windAvg, north) {
@@ -1856,8 +1866,9 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       const np = nightPeriod(sun, jstNow());
       if (np) { avg = periodFeelsAvg(lastData.hourly, dayDate, np.from, np.to, m.MAXT, sun); wAvg = periodWindAvg(lastData.hourly, dayDate, np.from, np.to); wNorth = periodWindNorth(lastData.hourly, dayDate, np.from, np.to); basisLbl = '夜間'; }
     }
-    const o = workOutfitFor(judgeTemp(avg, wAvg, wNorth));
-    $('clothesTitle').innerHTML = `👕 ${DAY_LABEL[currentDay]}の服装<span class="judge-feel">${basisLbl} ${avg != null ? `${avg}℃` : '--℃'}</span>`;
+    const judged = judgeTemp(avg, wAvg, wNorth);
+    const o = workOutfitFor(judged);
+    $('clothesTitle').innerHTML = `👕 ${DAY_LABEL[currentDay]}の服装<span class="judge-feel">${bandSpanHtml(outfitBand(judged))}</span>`;
     const topsLines = o.tops.split('＋').map(t => `<div>${t}</div>`).join('');
     const bottomsLines = o.bottoms.split('＋').map(t => `<div>${t}</div>`).join('');
     $('clothesBands').innerHTML =
@@ -1985,7 +1996,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const judged = judgeTemp(feels, wind, north);
     const o = workOutfitFor(judged);
     const band = outfitBand(judged);
-    $('outfitTitle').innerHTML = `👕 ${label}<span class="of-band" style="color:${band.color}">${band.name}</span>`;
+    $('outfitTitle').innerHTML = `👕 ${label}${bandSpanHtml(band)}`;
     $('outfitBody').innerHTML = `<p class="note" style="margin-bottom:10px;white-space:nowrap;">${basisTxt}</p>` + outfitGridHtml(o);
     openModal('outfitModal');
   }
@@ -2185,7 +2196,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, outfitBand, judgeTemp, isNorthWind, daytimeWindNorth, periodWindNorth, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, outfitBand, bandSpanHtml, judgeTemp, isNorthWind, daytimeWindNorth, periodWindNorth, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
