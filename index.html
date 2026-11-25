@@ -157,6 +157,8 @@
   .sheet.wide { max-width: 920px; }
   .sheet-head { display: flex; align-items: center; margin-bottom: 10px; }
   .sheet-head h3 { font-size: 17px; font-weight: 700; flex: 1; margin: 0; }
+  #outfitTitle { display: flex; align-items: baseline; }
+  #outfitTitle .of-band { margin-left: auto; font-weight: 700; }
   .sheet-close { background: #f2f2f7; border: none; width: 34px; height: 34px; border-radius: 50%; font-size: 15px; cursor: pointer; }
   .flabel { display: block; font-size: 14px; font-weight: 600; margin: 10px 0 4px; }
   .sheet input[type="text"] { font-size: 16px; padding: 10px 12px; border: 1px solid #d1d1d6; border-radius: 10px; width: 100%; box-sizing: border-box; }
@@ -799,6 +801,19 @@ function workOutfitFor(temp) {
 //   平均風速5m/s以上：北が入っている風は-1℃、それ以外は補正なし
 //   平均風速5m/s未満：補正なし
 //   北かどうかは north で渡す（時間帯の判定では、一番強い風の時間の風向で決める）
+// 服装表示基準の短いラベルと色（服装判定ポップアップの見出し右に表示。区分は服装表と一致）
+function outfitBand(t) {
+  if (t == null || !Number.isFinite(t)) return { name: '', color: '#48484a' };
+  if (t >= 31) return { name: '空調服', color: '#007aff' };
+  if (t >= 25) return { name: '薄手', color: '#007aff' };
+  if (t >= 21) return { name: '夏服', color: '#007aff' };
+  if (t >= 18) return { name: '冬服', color: '#cc6600' };
+  if (t >= 15) return { name: '厚手服', color: '#cc6600' };
+  if (t >= 11) return { name: '軽防寒服', color: '#cc6600' };
+  if (t >= 6) return { name: '防寒服', color: '#dd2222' };
+  return { name: '重防寒服', color: '#dd2222' };
+}
+
 function judgeTemp(feelsAvg, windAvg, north) {
   if (!Number.isFinite(feelsAvg)) return null;
   let t = feelsAvg;
@@ -1965,11 +1980,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     return `<div class="of-grid"><div class="of-col"><div class="of-h">トップス</div><div class="of-v">${topsLines}</div></div>` +
       `<div class="of-col"><div class="of-h">ボトムス</div><div class="of-v">${bottomsLines}</div></div></div>`;
   }
-  function openOutfitPopup(title, basisTxt, feels, wind, north) {
+  function openOutfitPopup(label, basisTxt, feels, wind, north) {
     if (feels == null) return;
-    const o = workOutfitFor(judgeTemp(feels, wind, north));
-    $('outfitTitle').textContent = title;
-    $('outfitBody').innerHTML = `<p class="note" style="margin-bottom:10px;">${basisTxt}</p>` + outfitGridHtml(o);
+    const judged = judgeTemp(feels, wind, north);
+    const o = workOutfitFor(judged);
+    const band = outfitBand(judged);
+    $('outfitTitle').innerHTML = `👕 ${label}<span class="of-band" style="color:${band.color}">${band.name}</span>`;
+    $('outfitBody').innerHTML = `<p class="note" style="margin-bottom:10px;white-space:nowrap;">${basisTxt}</p>` + outfitGridHtml(o);
     openModal('outfitModal');
   }
   // 体感（8時・14時・20時）タップ：その時間の体感と風速で判定する
@@ -1983,13 +2000,13 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     const fl = feelsAt(dayDate, hour, fb, sun);
     const wind = r && r.windSpd != null ? r.windSpd : null;
     const north = r ? isNorthWind(r.windDir) : false;
-    openOutfitPopup(`👕 ${hour}時の服装判定`, `${DAY_LABEL[currentDay]} ${hour}時の体感 ${fl != null ? `${fl}℃` : '--℃'}${wind != null ? `・風速 ${wind}m/s` : ''} で判定`, fl, wind, north);
+    openOutfitPopup(`${hour}時の服装`, `${fl != null ? `${fl}℃` : '--℃'}${wind != null ? ` ・ ${wind}m/s` : ''}`, fl, wind, north);
   }
   // 現在天気タップ：現在の体感（帯に表示している実況ベースの値）で判定する
   function openNowOutfit() {
     if (!nowJudge || nowJudge.feels == null) return;
     // nowJudge.feels は現在天気の表示と同じ補正後の値なので、ここでは補正をかけ直さない（wind=null で素通し）
-    openOutfitPopup('👕 現在の服装判定', `現在の体感 ${nowJudge.feels}℃${nowJudge.wind != null ? `・風速 ${nowJudge.wind}m/s` : ''}${nowJudge.temp != null ? `（気温 ${nowJudge.temp}℃）` : ''} で判定`, nowJudge.feels, null, false);
+    openOutfitPopup('現在の服装', `${nowJudge.feels}℃${nowJudge.wind != null ? ` ・ ${nowJudge.wind}m/s` : ''}`, nowJudge.feels, null, false);
   }
 
   // 右パネル：週間天気予報（全データを横スクロールで表示。カード内の順番はiPhone版に合わせる：天気→最高／最低→風速→降水）
@@ -2168,7 +2185,7 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
 
 /* Node等での検証用エクスポート */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, judgeTemp, isNorthWind, daytimeWindNorth, periodWindNorth, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
+  module.exports = { parseDayCards, parseHourly, parseWeek, parseObserved, parsePlaceName, parseOmPop, correctPopMap, popTargets, popShapeRain, parseOmHum, parseOmWind, parseOmTemp, parseOmWindH, sixHourBlocks, omKey, windDirLabel, workOutfitFor, outfitBand, judgeTemp, isNorthWind, daytimeWindNorth, periodWindNorth, umbrellaAdvice, wxText, wxEmoji, feelsLike, humidityCorrection, findNextRain, daytimeFeelsAvg, daytimeWindAvg, nightPeriod, displayNightPeriod, periodFeelsAvg, periodWindAvg, dayWindMax, dayWindMaxInfo, dayRainMax, windToDeg, dateFromMrfTm, resolveJmaArea, parseJmaWarnings, strongRainNote, jmaWarnSeverity };
 }
 </script>
 <script>
