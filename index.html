@@ -539,95 +539,35 @@ function correctPopMap(rawPop, targets, shapeRain) {
   const out = Object.assign({}, rawPop || {});
   if (!rawPop || !targets) return out;
   const key = (dstr, h) => `${dstr}T${String(h).padStart(2, '0')}`;
-  // [from, to] の範囲について、形付け後の値の並びを返す（確率が無い時間は null）
-  const shapedRange = (dstr, from, to) => {
-    let maxRain = null;
-    for (let h = from; h <= to; h++) {
-      const r = shapeRain ? shapeRain[key(dstr, h)] : null;
-      if (r != null && (maxRain === null || r > maxRain)) maxRain = r;
-    }
-    const arr = [];
+  // 正規化（2026-11-25〜）: 範囲内の一番高い時間を100%として、ウェザーニュースの目標値へ
+  // 比例させる。範囲内の全時間に同じ倍率をかけるため、最大の時間が目標値と一致し、
+  // Open-Meteo の形（どの時間が高いか）はそのまま残る。生が0の時間は0のまま。
+  // 倍率の上限・10%未満の据え置き・雨量による形付け・ピーク保証は廃止した。
+  // （第3引数 shapeRain は呼び出し側の互換のため残すが、もう使わない）
+  const normalize = (dstr, from, to, target) => {
+    if (target == null) return;
+    let mx = 0;
     for (let h = from; h <= to; h++) {
       const v = rawPop[key(dstr, h)];
-      if (v == null) { arr.push(null); continue; }
-      const r = shapeRain ? shapeRain[key(dstr, h)] : null;
-      arr.push(r != null && maxRain > 0 ? v * (0.8 + 0.2 * (r / maxRain)) : v);
+      if (v != null && v > mx) mx = v;
     }
-    return arr;
-  };
-  // 形付け後の並びを、anchorOf（代表値）が target と一致するよう倍率を決めて out へ書き込む
-  const applyScale = (dstr, from, shaped, target, anchorOf, exemptLow) => {
-    const vals = shaped.filter(v => v != null);
-    if (!vals.length) return;
-    const anchor = anchorOf(vals);
-    if (anchor === null || anchor === 0) return; // 全て0の範囲は形が分からないため触らない
-    let f = target / anchor;
-    const lifting = f > 1;
-    if (lifting) f = Math.min(f, 1.5); // 引き上げは1.5倍まで
-    for (let i = 0; i < shaped.length; i++) {
-      if (shaped[i] == null) continue;
-      if (lifting && exemptLow && rawPop[key(dstr, from + i)] < 10) continue; // 生の確率が10%未満の時間は持ち上げない
-      out[key(dstr, from + i)] = Math.max(0, Math.min(100, Math.round(shaped[i] * f)));
+    if (mx <= 0) return; // 全て0の範囲は形が分からないため触らない
+    const f = target / mx;
+    for (let h = from; h <= to; h++) {
+      const v = rawPop[key(dstr, h)];
+      if (v != null) out[key(dstr, h)] = Math.max(0, Math.min(100, Math.round(v * f)));
     }
-  };
-  // ピーク保証（2026-11-25）: 補正後の最大値が目標と食い違う場合、一番高い1時間だけを目標値に合わせる。
-  // 他の時間は変えない（1.5倍上限・10%未満据え置きは維持）。引き上げ時のピークの置き場は形付け後の
-  // 最大の時間、形付けが全て0なら雨量が最大の時間。それも無ければ触らない。
-  const guaranteePeak = (dstr, from, shaped, target) => {
-    let curMax = null, curIdx = -1;
-    for (let i = 0; i < shaped.length; i++) {
-      const v = out[key(dstr, from + i)];
-      if (v != null && (curMax === null || v > curMax)) { curMax = v; curIdx = i; }
-    }
-    if (curMax === null || curMax === target) return;
-    let idx = curIdx;
-    if (curMax < target) {
-      idx = -1;
-      let mx = 0;
-      for (let i = 0; i < shaped.length; i++) {
-        if (shaped[i] != null && shaped[i] > mx) { mx = shaped[i]; idx = i; }
-      }
-      if (idx < 0) {
-        let rMx = 0;
-        for (let i = 0; i < shaped.length; i++) {
-          const r = shapeRain ? shapeRain[key(dstr, from + i)] : null;
-          if (r != null && r > rMx) { rMx = r; idx = i; }
-        }
-      }
-      if (idx < 0) return;
-    }
-    out[key(dstr, from + idx)] = Math.max(0, Math.min(100, target));
   };
   Object.keys(targets).forEach(dstr => {
     const t = targets[dstr] || {};
     if (t.am != null || t.pm != null) {
-      [{ from: 0, to: 11, val: t.am }, { from: 12, to: 23, val: t.pm }].forEach(hf => {
-        const target = hf.val != null ? hf.val : t.day;
-        if (target == null) return;
-        const shaped = shapedRange(dstr, hf.from, hf.to);
-        if (hf.val == null) {
-          // 片方の確率が無いブロックは1日の確率で抑えるだけ（引き上げない）
-          const vals = shaped.filter(v => v != null);
-          if (!vals.length) return;
-          const mx = Math.max.apply(null, vals);
-          if (mx === 0 || mx <= target) return;
-          const f = target / mx;
-          for (let i = 0; i < shaped.length; i++) {
-            if (shaped[i] != null) out[key(dstr, hf.from + i)] = Math.max(0, Math.min(100, Math.round(shaped[i] * f)));
-          }
-          return;
-        }
-        applyScale(dstr, hf.from, shaped, target, vals => Math.max.apply(null, vals), true);
-        guaranteePeak(dstr, hf.from, shaped, target);
-      });
+      // 今日・明日：午前（0–11時）／午後（12–23時）ごとに正規化する。
+      // 片方の確率が無いブロックは1日の確率を目標にする
+      normalize(dstr, 0, 11, t.am != null ? t.am : t.day);
+      normalize(dstr, 12, 23, t.pm != null ? t.pm : t.day);
     } else if (t.day != null) {
-      // 明後日以降：上位3時間の平均を1日の確率へ合わせる
-      const shaped = shapedRange(dstr, 0, 23);
-      applyScale(dstr, 0, shaped, t.day, vals => {
-        const top = vals.slice().sort((a, b) => b - a).slice(0, 3);
-        return top.reduce((s, v) => s + v, 0) / top.length;
-      }, false);
-      guaranteePeak(dstr, 0, shaped, t.day);
+      // 明後日以降：1日を通して正規化し、最大の時間を1日の確率へ合わせる
+      normalize(dstr, 0, 23, t.day);
     }
   });
   return out;
