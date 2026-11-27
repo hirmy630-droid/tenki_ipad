@@ -742,13 +742,20 @@ function wxText(code) {
 }
 function wxEmoji(code) {
   const c = Number(code);
-  if (WX_TEXT[c] && /雷/.test(WX_TEXT[c])) return '⛈️';
+  const text = WX_TEXT[c] || '';
+  if (/雷/.test(text)) return '⛈️';
   const h = Math.floor(c / 100);
-  if (h === 1) return (c === 100) ? '☀️' : '🌤️';
-  if (h === 2) return '☁️';
-  if (h === 3) return '☂️';
-  if (h === 4) return '🌨️';
-  return '🌤️';
+  const single = h === 1 ? (c === 100 ? '☀️' : '🌤️') : h === 2 ? '☁️' : h === 3 ? '☂️' : h === 4 ? '🌨️' : '🌤️';
+  // 組み合わせ天気（雨のちくもり・くもりのち雨など）は、2つのアイコンを並べて表示する
+  const wordEmoji = (s) => s.startsWith('晴') ? '☀️' : s.startsWith('くもり') ? '☁️' : s.startsWith('雨') ? '☂️' : (s.startsWith('雪') || s.startsWith('降雪')) ? '🌨️' : null;
+  if (text) {
+    const parts = text.split(/のち|時々|一時|か/).filter(s => s.length);
+    if (parts.length > 1) {
+      const e1 = wordEmoji(parts[0]), e2 = wordEmoji(parts[1]);
+      if (e1 && e2 && e1 !== e2) return e1 + e2;
+    }
+  }
+  return single;
 }
 
 /* ---------- 体感温度（気温と風速から計算する目安） ---------- */
