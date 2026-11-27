@@ -411,13 +411,13 @@
       </section>
 
       <div class="btn-row-btw">
-        <a class="btn-radar" id="radarBtn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer">🌧️ レーダー</a>
+        <a class="btn-radar" id="radarBtn" href="https://weather.yahoo.co.jp/weather/zoomradar/" target="_blank" rel="noopener noreferrer">☂️ レーダー</a>
         <button type="button" class="btn-refresh" id="refreshBtn">🔄 更新</button>
       </div>
 
       <!-- つぎの雨予報 -->
       <section class="card">
-        <div class="nr-head"><h2 class="nr-title">🌧️ つぎの雨予報</h2><span class="nr-when" id="nrWhen"></span></div>
+        <div class="nr-head"><h2 class="nr-title">☂️ つぎの雨予報</h2><span class="nr-when" id="nrWhen"></span></div>
         <div class="nextrain" id="nextRain"><p class="note">予報を取得すると表示します。</p></div>
       </section>
 
@@ -481,7 +481,7 @@
 <!-- ポップアップ：雨雲レーダー -->
 <div class="overlay hidden" id="radarModal">
   <div class="sheet wide">
-    <div class="sheet-head"><h3>🌧️ 雨雲レーダー</h3><button type="button" class="sheet-close" data-close="radarModal">✕</button></div>
+    <div class="sheet-head"><h3>☂️ 雨雲レーダー</h3><button type="button" class="sheet-close" data-close="radarModal">✕</button></div>
     <iframe id="radarFrame" title="雨雲レーダー" loading="lazy"></iframe>
   </div>
 </div>
@@ -746,7 +746,7 @@ function wxEmoji(code) {
   const h = Math.floor(c / 100);
   if (h === 1) return (c === 100) ? '☀️' : '🌤️';
   if (h === 2) return '☁️';
-  if (h === 3) return '🌧️';
+  if (h === 3) return '☂️';
   if (h === 4) return '🌨️';
   return '🌤️';
 }
